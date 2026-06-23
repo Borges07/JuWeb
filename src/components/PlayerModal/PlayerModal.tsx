@@ -1,5 +1,7 @@
-// Modal de detalhes do atleta — aberto ao clicar num card de resultados.
-// Mostra a foto em tamanho grande e as informações completas.
+// Modal de detalhes do atleta — aberto ao clicar num card.
+// Mostra a foto grande e os dados. Se a votação está aberta e o dispositivo
+// ainda não votou, mostra o botão de votar; senão, apenas os dados.
+// Não exibe a quantidade de votos (público vê só a porcentagem).
 
 import { useEffect, useRef } from 'react'
 import type { PlayerResult } from '../../types'
@@ -9,9 +11,25 @@ interface PlayerModalProps {
   position: number
   totalVotes: number
   onClose: () => void
+  /** Se true, mostra o botão de votar. */
+  canVote?: boolean
+  /** true enquanto o voto está sendo registrado. */
+  voting?: boolean
+  /** true se o dispositivo já votou. */
+  alreadyVoted?: boolean
+  onVote?: () => void
 }
 
-export function PlayerModal({ result, position, totalVotes, onClose }: PlayerModalProps) {
+export function PlayerModal({
+  result,
+  position,
+  totalVotes,
+  onClose,
+  canVote,
+  voting,
+  alreadyVoted,
+  onVote,
+}: PlayerModalProps) {
   const { player, votes } = result
   const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
 
@@ -68,14 +86,23 @@ export function PlayerModal({ result, position, totalVotes, onClose }: PlayerMod
             <span>Posição</span>
           </div>
           <div className="modal__stat">
-            <strong>{votes}</strong>
-            <span>Voto{votes === 1 ? '' : 's'}</span>
-          </div>
-          <div className="modal__stat">
             <strong>{percent}%</strong>
-            <span>do total</span>
+            <span>dos votos</span>
           </div>
         </div>
+
+        {canVote && onVote ? (
+          <button
+            className="btn btn--primary modal__vote"
+            type="button"
+            disabled={voting}
+            onClick={onVote}
+          >
+            {voting ? 'Registrando...' : 'Votar neste atleta'}
+          </button>
+        ) : alreadyVoted ? (
+          <p className="modal__voted">✓ Você já votou</p>
+        ) : null}
       </div>
     </div>
   )

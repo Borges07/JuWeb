@@ -15,6 +15,14 @@ import type { PlayerResult, Player, Vote } from '../types'
 
 const votesRef = collection(db, COLLECTIONS.VOTES)
 
+/** Erro específico para "este dispositivo já votou" (distingue de erro de rede). */
+export class AlreadyVotedError extends Error {
+  constructor() {
+    super('Este dispositivo já votou.')
+    this.name = 'AlreadyVotedError'
+  }
+}
+
 /** Verifica no Firestore se o fingerprint informado já registrou um voto. */
 export async function hasFingerprintVoted(fingerprint: string): Promise<boolean> {
   const snap = await getDocs(query(votesRef, where('fingerprint', '==', fingerprint)))
@@ -46,7 +54,7 @@ export function hasVotedLocally(): boolean {
 export async function castVote(playerId: string, fingerprint: string): Promise<void> {
   const alreadyVoted = await hasFingerprintVoted(fingerprint)
   if (alreadyVoted) {
-    throw new Error('Este dispositivo já votou.')
+    throw new AlreadyVotedError()
   }
 
   await addDoc(votesRef, {

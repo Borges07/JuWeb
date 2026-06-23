@@ -1,23 +1,31 @@
-// Painel administrativo: gestão de jogadores e controle da votação.
+// Painel administrativo: CRUD de alunos, controle da votação e board de votos.
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { usePlayers } from '../../hooks/usePlayers'
 import {
   createPlayer,
   deletePlayer,
+  getAllPlayers,
   setPlayerActive,
+  updatePlayer,
 } from '../../services/playerService'
 import {
   closeVoting,
   getSettings,
   openVoting,
 } from '../../services/settingsService'
-import { resetVotes } from '../../services/voteService'
+import { getResults, resetVotes } from '../../services/voteService'
 import { validatePlayer } from '../../utils/validators'
 import { fileToResizedDataUrl } from '../../utils/image'
 import Loading from '../../components/Loading/Loading'
-import type { Settings } from '../../types'
+import type { Player, PlayerResult, Settings } from '../../types'
 
 const EMPTY_FORM = { name: '', number: '', category: '', photo: '' }
 
@@ -26,10 +34,11 @@ export function Admin() {
   const { players, loading, reload } = usePlayers(false)
 
   const [form, setForm] = useState(EMPTY_FORM)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  // Usado para "resetar" o <input type="file"> após cadastrar.
+  // Usado para "resetar" o <input type="file"> após cadastrar/editar.
   const [fileKey, setFileKey] = useState(0)
 
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -37,13 +46,23 @@ export function Admin() {
   const [match, setMatch] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const [board, setBoard] = useState<PlayerResult[]>([])
+
+  const reloadBoard = useCallback(async () => {
+    const all = await getAllPlayers()
+    setBoard(await getResults(all))
+  }, [])
+
   useEffect(() => {
-    getSettings().then((s) => {
+    async function init() {
+      const s = await getSettings()
       setSettings(s)
       setChampionship(s.championship)
       setMatch(s.match)
-    })
-  }, [])
+      await reloadBoard()
+    }
+    void init()
+  }, [reloadBoard])
 
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -62,13 +81,37 @@ export function Admin() {
     setFileKey((k) => k + 1)
   }
 
-  async function handleAddPlayer(event: FormEvent) {
+  function startEdit(player: Player) {
+    setEditingId(player.id)
+    setForm({
+      name: player.name,
+      number: String(player.number),
+      category: player.category ?? '',
+      photo: player.photo ?? '',
+    })
+    setErrors({})
+    setPhotoError(null)
+    setSubmitError(null)
+    setFileKey((k) => k + 1)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setForm(EMPTY_FORM)
+    setErrors({})
+    setSubmitError(null)
+    setFileKey((k) => k + 1)
+  }
+
+  async function handleSubmitPlayer(event: FormEvent) {
     event.preventDefault()
     const parsed = {
       name: form.name.trim(),
-      number: Number(form.number),
-      category: form.category.trim() || undefined,
-      photo: form.photo || undefined,
+      // Número vazio vira NaN para a validação barrar (em vez de salvar 0).
+      number: form.number.trim() === '' ? NaN : Number(form.number),
+      // Ao editar, '' limpa o campo; ao cadastrar, vazio não grava nada.
+      category: editingId ? form.category.trim() : form.category.trim() || undefined,
+      photo: editingId ? form.photo : form.photo || undefined,
     }
     const validation = validatePlayer(parsed)
     setErrors(validation)
@@ -77,10 +120,14 @@ export function Admin() {
     setBusy(true)
     setSubmitError(null)
     try {
-      await createPlayer({ ...parsed, active: true })
-      setForm(EMPTY_FORM)
-      setFileKey((k) => k + 1)
+      if (editingId) {
+        await updatePlayer(editingId, parsed)
+      } else {
+        await createPlayer({ ...parsed, active: true })
+      }
+      cancelEdit()
       await reload()
+      await reloadBoard()
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : 'Não foi possível salvar o jogador.',
@@ -91,14 +138,25 @@ export function Admin() {
   }
 
   async function handleToggleActive(id: string, active: boolean) {
-    await setPlayerActive(id, !active)
-    await reload()
+    try {
+      await setPlayerActive(id, !active)
+      await reload()
+      await reloadBoard()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o jogador.')
+    }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Remover este jogador?')) return
-    await deletePlayer(id)
-    await reload()
+    if (!confirm('Remover este jogador? Ele sai da votação e dos resultados.')) return
+    if (editingId === id) cancelEdit()
+    try {
+      await deletePlayer(id)
+      await reload()
+      await reloadBoard()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível remover o jogador.')
+    }
   }
 
   async function handleToggleVoting() {
@@ -122,6 +180,7 @@ export function Admin() {
     setBusy(true)
     try {
       await resetVotes()
+      await reloadBoard()
       alert('Votação reiniciada.')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Não foi possível reiniciar a votação.')
@@ -129,6 +188,8 @@ export function Admin() {
       setBusy(false)
     }
   }
+
+  const boardTotal = board.reduce((sum, r) => sum + r.votes, 0)
 
   return (
     <section className="page page--admin">
@@ -169,10 +230,42 @@ export function Admin() {
         </div>
       </div>
 
-      {/* Cadastro de jogador */}
+      {/* Board de votos — visível só para o admin */}
       <div className="admin__panel">
-        <h2>Cadastrar jogador</h2>
-        <form className="form" onSubmit={handleAddPlayer}>
+        <div className="admin__panel-head">
+          <h2>Resultados (apenas admin)</h2>
+          <button className="btn btn--ghost" type="button" onClick={() => void reloadBoard()}>
+            Atualizar
+          </button>
+        </div>
+        <p className="page__subtitle">Total de votos: {boardTotal}</p>
+        {board.length === 0 ? (
+          <p>Nenhum jogador cadastrado.</p>
+        ) : (
+          <ul className="board">
+            {board.map((r, index) => {
+              const pct = boardTotal > 0 ? Math.round((r.votes / boardTotal) * 100) : 0
+              return (
+                <li className="board__row" key={r.player.id}>
+                  <span className="board__pos">{index + 1}º</span>
+                  <span className="board__name">
+                    {r.player.name}
+                    {r.player.category ? ` · ${r.player.category}` : ''}
+                  </span>
+                  <span className="board__votes">
+                    {r.votes} voto{r.votes === 1 ? '' : 's'} · {pct}%
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Cadastro / edição de jogador */}
+      <div className="admin__panel">
+        <h2>{editingId ? 'Editar jogador' : 'Cadastrar jogador'}</h2>
+        <form className="form" onSubmit={handleSubmitPlayer}>
           <div className="form__row">
             <label className="form__field">
               <span>Nome</span>
@@ -232,9 +325,16 @@ export function Admin() {
 
           {submitError && <p className="alert alert--error">{submitError}</p>}
 
-          <button className="btn btn--primary" type="submit" disabled={busy}>
-            Adicionar
-          </button>
+          <div className="admin__actions">
+            <button className="btn btn--primary" type="submit" disabled={busy}>
+              {editingId ? 'Salvar alterações' : 'Adicionar'}
+            </button>
+            {editingId && (
+              <button className="btn btn--ghost" type="button" onClick={cancelEdit}>
+                Cancelar
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -271,6 +371,13 @@ export function Admin() {
                 </div>
 
                 <div className="player-list__actions">
+                  <button
+                    className="btn btn--ghost"
+                    type="button"
+                    onClick={() => startEdit(player)}
+                  >
+                    Editar
+                  </button>
                   <button
                     className="btn btn--ghost"
                     type="button"
