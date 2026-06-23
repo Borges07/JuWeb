@@ -21,6 +21,7 @@ function mapPlayer(id: string, data: Record<string, unknown>): Player {
     id,
     name: String(data.name ?? ''),
     number: Number(data.number ?? 0),
+    category: data.category ? String(data.category) : undefined,
     photo: data.photo ? String(data.photo) : undefined,
     active: Boolean(data.active),
   }

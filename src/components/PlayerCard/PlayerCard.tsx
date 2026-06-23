@@ -27,7 +27,10 @@ export function PlayerCard({ player, selected, disabled, onSelect }: PlayerCardP
       </div>
       <div className="player-card__info">
         <strong className="player-card__name">{player.name}</strong>
-        <span className="player-card__meta">Camisa {player.number}</span>
+        <span className="player-card__meta">
+          Camisa {player.number}
+          {player.category ? ` · ${player.category}` : ''}
+        </span>
       </div>
     </button>
   )

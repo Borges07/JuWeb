@@ -4,7 +4,9 @@ export interface Player {
   id: string
   name: string
   number: number
-  /** URL da foto do jogador (opcional). */
+  /** Categoria do jogador (ex.: Sub-15, Sub-17, Adulto). Opcional. */
+  category?: string
+  /** Foto do jogador como data URL (base64) salvo no Firestore. Opcional. */
   photo?: string
   /** Apenas jogadores ativos aparecem para votação. */
   active: boolean
@@ -25,10 +27,10 @@ export interface Vote {
 export interface Settings {
   /** Indica se a votação está aberta. */
   votingOpen: boolean
-  /** Temporada atual (ex.: "2026"). */
-  season: string
-  /** Identificação da partida atual (ex.: "Time A x Time B - 22/06"). */
-  currentMatch: string
+  /** Campeonato atual (ex.: "Liga Regional 2026"). */
+  championship: string
+  /** Partida atual (ex.: "ADEC x Time B - 22/06"). */
+  match: string
 }
 
 /** Resultado agregado por jogador, usado nas telas de ranking/resultados. */
