@@ -25,7 +25,7 @@ function App() {
       </main>
 
       <footer className="app__footer">
-        <small>Sistema de Votação · feito com React + Firebase</small>
+        <small>© ADEC - Futebol Clube</small>
       </footer>
     </div>
   )
