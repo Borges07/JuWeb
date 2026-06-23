@@ -83,9 +83,9 @@ A aplicação sobe em `http://localhost:5173`.
 
 | Coleção    | Campos                                          |
 | ---------- | ----------------------------------------------- |
-| `players`  | `name`, `number`, `photo?`, `active`            |
+| `players`  | `name`, `number`, `category?`, `photo?` (data URL base64), `active` |
 | `votes`    | `playerId`, `fingerprint`, `createdAt`          |
-| `settings` | doc `global`: `votingOpen`, `season`, `currentMatch` |
+| `settings` | doc `global`: `votingOpen`, `championship`, `match` |
 
 ## Como funciona a proteção contra votos duplicados
 
