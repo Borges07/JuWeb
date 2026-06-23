@@ -243,57 +243,52 @@ export function Admin() {
         <h2>Jogadores</h2>
         {loading ? (
           <Loading />
+        ) : players.length === 0 ? (
+          <p>Nenhum jogador cadastrado.</p>
         ) : (
-          <table className="admin__table">
-            <thead>
-              <tr>
-                <th>Foto</th>
-                <th>#</th>
-                <th>Nome</th>
-                <th>Categoria</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((player) => (
-                <tr key={player.id}>
-                  <td>
-                    {player.photo ? (
-                      <img className="admin__avatar" src={player.photo} alt={player.name} />
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td>{player.number}</td>
-                  <td>{player.name}</td>
-                  <td>{player.category || '—'}</td>
-                  <td>{player.active ? 'Ativo' : 'Inativo'}</td>
-                  <td className="admin__row-actions">
-                    <button
-                      className="btn btn--ghost"
-                      type="button"
-                      onClick={() => handleToggleActive(player.id, player.active)}
-                    >
-                      {player.active ? 'Desativar' : 'Ativar'}
-                    </button>
-                    <button
-                      className="btn btn--danger"
-                      type="button"
-                      onClick={() => handleDelete(player.id)}
-                    >
-                      Remover
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {players.length === 0 && (
-                <tr>
-                  <td colSpan={6}>Nenhum jogador cadastrado.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <ul className="player-list">
+            {players.map((player) => (
+              <li className="player-list__item" key={player.id}>
+                {player.photo ? (
+                  <img className="player-list__photo" src={player.photo} alt={player.name} />
+                ) : (
+                  <span className="player-list__photo player-list__photo--empty">
+                    {player.number}
+                  </span>
+                )}
+
+                <div className="player-list__info">
+                  <strong className="player-list__name">
+                    #{player.number} {player.name}
+                  </strong>
+                  <span className="player-list__meta">
+                    {player.category || 'Sem categoria'}
+                    {' · '}
+                    <span className={player.active ? 'is-active' : 'is-inactive'}>
+                      {player.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="player-list__actions">
+                  <button
+                    className="btn btn--ghost"
+                    type="button"
+                    onClick={() => handleToggleActive(player.id, player.active)}
+                  >
+                    {player.active ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button
+                    className="btn btn--danger"
+                    type="button"
+                    onClick={() => handleDelete(player.id)}
+                  >
+                    Remover
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </section>
