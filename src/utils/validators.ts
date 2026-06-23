@@ -25,9 +25,6 @@ export function validatePlayer(input: Partial<PlayerInput>): Record<string, stri
     errors.number = 'Informe um número válido.'
   }
 
-  if (input.photo && !/^https?:\/\//.test(input.photo)) {
-    errors.photo = 'A foto deve ser uma URL (http/https).'
-  }
-
+  // A foto é enviada como arquivo e convertida em data URL — não validamos formato.
   return errors
 }

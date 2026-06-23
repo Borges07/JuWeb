@@ -1,6 +1,6 @@
 // Painel administrativo: gestão de jogadores e controle da votação.
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { usePlayers } from '../../hooks/usePlayers'
 import {
@@ -15,10 +15,11 @@ import {
 } from '../../services/settingsService'
 import { resetVotes } from '../../services/voteService'
 import { validatePlayer } from '../../utils/validators'
+import { fileToResizedDataUrl } from '../../utils/image'
 import Loading from '../../components/Loading/Loading'
 import type { Settings } from '../../types'
 
-const EMPTY_FORM = { name: '', number: '', photo: '' }
+const EMPTY_FORM = { name: '', number: '', category: '', photo: '' }
 
 export function Admin() {
   const { user, logout } = useAuth()
@@ -26,35 +27,64 @@ export function Admin() {
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  // Usado para "resetar" o <input type="file"> após cadastrar.
+  const [fileKey, setFileKey] = useState(0)
+
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [championship, setChampionship] = useState('')
   const [match, setMatch] = useState('')
-  const [season, setSeason] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     getSettings().then((s) => {
       setSettings(s)
-      setMatch(s.currentMatch)
-      setSeason(s.season)
+      setChampionship(s.championship)
+      setMatch(s.match)
     })
   }, [])
+
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPhotoError(null)
+    try {
+      const dataUrl = await fileToResizedDataUrl(file)
+      setForm((f) => ({ ...f, photo: dataUrl }))
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Erro ao processar a imagem.')
+    }
+  }
+
+  function clearPhoto() {
+    setForm((f) => ({ ...f, photo: '' }))
+    setFileKey((k) => k + 1)
+  }
 
   async function handleAddPlayer(event: FormEvent) {
     event.preventDefault()
     const parsed = {
       name: form.name.trim(),
       number: Number(form.number),
-      photo: form.photo.trim() || undefined,
+      category: form.category.trim() || undefined,
+      photo: form.photo || undefined,
     }
     const validation = validatePlayer(parsed)
     setErrors(validation)
     if (Object.keys(validation).length > 0) return
 
     setBusy(true)
+    setSubmitError(null)
     try {
       await createPlayer({ ...parsed, active: true })
       setForm(EMPTY_FORM)
+      setFileKey((k) => k + 1)
       await reload()
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Não foi possível salvar o jogador.',
+      )
     } finally {
       setBusy(false)
     }
@@ -77,9 +107,11 @@ export function Admin() {
       if (settings?.votingOpen) {
         await closeVoting()
       } else {
-        await openVoting(match, season)
+        await openVoting(championship, match)
       }
       setSettings(await getSettings())
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar a votação.')
     } finally {
       setBusy(false)
     }
@@ -91,6 +123,8 @@ export function Admin() {
     try {
       await resetVotes()
       alert('Votação reiniciada.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível reiniciar a votação.')
     } finally {
       setBusy(false)
     }
@@ -117,12 +151,12 @@ export function Admin() {
         </p>
         <div className="form__row">
           <label className="form__field">
-            <span>Partida atual</span>
-            <input value={match} onChange={(e) => setMatch(e.target.value)} />
+            <span>Campeonato</span>
+            <input value={championship} onChange={(e) => setChampionship(e.target.value)} />
           </label>
           <label className="form__field">
-            <span>Temporada</span>
-            <input value={season} onChange={(e) => setSeason(e.target.value)} />
+            <span>Partida</span>
+            <input value={match} onChange={(e) => setMatch(e.target.value)} />
           </label>
         </div>
         <div className="admin__actions">
@@ -158,14 +192,46 @@ export function Admin() {
               {errors.number && <small className="form__error">{errors.number}</small>}
             </label>
           </div>
+
           <label className="form__field">
-            <span>Foto (URL, opcional)</span>
+            <span>Categoria (ex.: Sub-15, Adulto)</span>
             <input
-              value={form.photo}
-              onChange={(e) => setForm({ ...form, photo: e.target.value })}
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
             />
-            {errors.photo && <small className="form__error">{errors.photo}</small>}
           </label>
+
+          <div className="form__field">
+            <span>Foto do jogador (opcional)</span>
+            <div className="photo-upload">
+              {form.photo ? (
+                <img className="photo-upload__preview" src={form.photo} alt="Prévia da foto" />
+              ) : (
+                <span className="photo-upload__placeholder">Sem foto</span>
+              )}
+              <div>
+                <input
+                  key={fileKey}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                />
+                {form.photo && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={clearPhoto}
+                  >
+                    Remover foto
+                  </button>
+                )}
+              </div>
+            </div>
+            {photoError && <small className="form__error">{photoError}</small>}
+          </div>
+
+          {submitError && <p className="alert alert--error">{submitError}</p>}
+
           <button className="btn btn--primary" type="submit" disabled={busy}>
             Adicionar
           </button>
@@ -181,8 +247,10 @@ export function Admin() {
           <table className="admin__table">
             <thead>
               <tr>
+                <th>Foto</th>
                 <th>#</th>
                 <th>Nome</th>
+                <th>Categoria</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
@@ -190,8 +258,16 @@ export function Admin() {
             <tbody>
               {players.map((player) => (
                 <tr key={player.id}>
+                  <td>
+                    {player.photo ? (
+                      <img className="admin__avatar" src={player.photo} alt={player.name} />
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td>{player.number}</td>
                   <td>{player.name}</td>
+                  <td>{player.category || '—'}</td>
                   <td>{player.active ? 'Ativo' : 'Inativo'}</td>
                   <td className="admin__row-actions">
                     <button
@@ -213,7 +289,7 @@ export function Admin() {
               ))}
               {players.length === 0 && (
                 <tr>
-                  <td colSpan={4}>Nenhum jogador cadastrado.</td>
+                  <td colSpan={6}>Nenhum jogador cadastrado.</td>
                 </tr>
               )}
             </tbody>

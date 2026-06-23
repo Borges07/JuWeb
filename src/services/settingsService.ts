@@ -9,8 +9,8 @@ const settingsDoc = doc(db, COLLECTIONS.SETTINGS, SETTINGS_DOC_ID)
 
 const DEFAULT_SETTINGS: Settings = {
   votingOpen: false,
-  season: '',
-  currentMatch: '',
+  championship: '',
+  match: '',
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -24,8 +24,8 @@ export async function updateSettings(patch: Partial<Settings>): Promise<void> {
 }
 
 /** Abre a votação. */
-export function openVoting(currentMatch: string, season: string): Promise<void> {
-  return updateSettings({ votingOpen: true, currentMatch, season })
+export function openVoting(championship: string, match: string): Promise<void> {
+  return updateSettings({ votingOpen: true, championship, match })
 }
 
 /** Encerra a votação (mantém os votos registrados). */

@@ -10,7 +10,8 @@ function App() {
     <div className="app">
       <header className="app__header">
         <NavLink to={ROUTES.HOME} className="app__brand">
-          ⚽ Destaque do Jogo
+          <img src="/favicon.png" alt="ADEC Futsal" className="app__logo" />
+          <span>ADEC Futsal</span>
         </NavLink>
         <nav className="app__nav">
           <NavLink to={ROUTES.VOTE}>Votar</NavLink>

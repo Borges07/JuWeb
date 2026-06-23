@@ -59,7 +59,11 @@ export function Vote() {
   return (
     <section className="page page--vote">
       <h1>Escolha o destaque</h1>
-      {settings?.currentMatch && <p className="page__subtitle">{settings.currentMatch}</p>}
+      {(settings?.championship || settings?.match) && (
+        <p className="page__subtitle">
+          {[settings?.championship, settings?.match].filter(Boolean).join(' · ')}
+        </p>
+      )}
 
       {error && <p className="alert alert--error">{error}</p>}
 
