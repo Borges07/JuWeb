@@ -14,8 +14,7 @@ function App() {
           <span>ADEC Futsal</span>
         </NavLink>
         <nav className="app__nav">
-          <NavLink to={ROUTES.VOTE}>Votar</NavLink>
-          <NavLink to={ROUTES.RESULTS}>Resultados</NavLink>
+          <NavLink to={ROUTES.VOTE}>Votação</NavLink>
           <NavLink to={ROUTES.ADMIN}>Admin</NavLink>
         </nav>
       </header>

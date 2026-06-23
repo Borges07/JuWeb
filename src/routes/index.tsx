@@ -4,8 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { ROUTES } from '../constants/routes'
 import ProtectedRoute from '../components/ProtectedRoute/ProtectedRoute'
 import Home from '../pages/Home/Home'
-import Vote from '../pages/Vote/Vote'
-import Results from '../pages/Results/Results'
+import Votacao from '../pages/Votacao/Votacao'
 import Login from '../pages/Login/Login'
 import Admin from '../pages/Admin/Admin'
 
@@ -13,8 +12,9 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path={ROUTES.HOME} element={<Home />} />
-      <Route path={ROUTES.VOTE} element={<Vote />} />
-      <Route path={ROUTES.RESULTS} element={<Results />} />
+      {/* Votação e resultados são a mesma página. */}
+      <Route path={ROUTES.VOTE} element={<Votacao />} />
+      <Route path={ROUTES.RESULTS} element={<Navigate to={ROUTES.VOTE} replace />} />
       <Route path={ROUTES.LOGIN} element={<Login />} />
       <Route
         path={ROUTES.ADMIN}
