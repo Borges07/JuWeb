@@ -37,13 +37,13 @@ function fitWithin(w: number, h: number, max: number): { width: number; height: 
 /**
  * Converte um arquivo de imagem em um data URL JPEG redimensionado.
  * @param file   Arquivo selecionado no <input type="file">.
- * @param max    Maior lado da imagem final, em pixels (padrão 256).
- * @param quality Qualidade do JPEG, de 0 a 1 (padrão 0.72).
+ * @param max    Maior lado da imagem final, em pixels (padrão 512 — nítido no modal).
+ * @param quality Qualidade do JPEG, de 0 a 1 (padrão 0.8).
  */
 export async function fileToResizedDataUrl(
   file: File,
-  max = 256,
-  quality = 0.72,
+  max = 512,
+  quality = 0.8,
 ): Promise<string> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Selecione um arquivo de imagem.')
