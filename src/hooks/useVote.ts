@@ -3,7 +3,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { getFingerprint } from '../utils/fingerprint'
-import { castVote, hasFingerprintVoted, hasVotedLocally } from '../services/voteService'
+import {
+  AlreadyVotedError,
+  castVote,
+  hasFingerprintVoted,
+  hasVotedLocally,
+} from '../services/voteService'
 
 interface UseVoteState {
   voting: boolean
@@ -42,8 +47,12 @@ export function useVote(): UseVoteState {
       setAlreadyVoted(true)
       return true
     } catch (err) {
+      // Só bloqueia como "já votou" se for voto duplicado de verdade.
+      // Erros de rede/permissão apenas exibem a mensagem e permitem tentar de novo.
+      if (err instanceof AlreadyVotedError) {
+        setAlreadyVoted(true)
+      }
       setError(err instanceof Error ? err.message : 'Não foi possível registrar o voto.')
-      setAlreadyVoted(true)
       return false
     } finally {
       setVoting(false)

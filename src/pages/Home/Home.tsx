@@ -13,10 +13,7 @@ export function Home() {
 
       <div className="home__actions">
         <Link className="btn btn--primary" to={ROUTES.VOTE}>
-          Votar agora
-        </Link>
-        <Link className="btn btn--ghost" to={ROUTES.RESULTS}>
-          Ver resultados
+          Votar e ver resultados
         </Link>
       </div>
     </section>

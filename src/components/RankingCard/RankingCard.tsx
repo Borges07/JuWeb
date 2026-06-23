@@ -56,9 +56,7 @@ export function RankingCard({ position, result, totalVotes, onClick }: RankingCa
               {player.category ? ` · ${player.category}` : ''}
             </span>
           </div>
-          <span className="ranking-card__votes">
-            {votes} voto{votes === 1 ? '' : 's'} · {percent}%
-          </span>
+          <span className="ranking-card__votes">{percent}%</span>
         </div>
         <div className="ranking-card__bar" aria-hidden="true">
           <div className="ranking-card__bar-fill" style={{ width: `${percent}%` }} />
