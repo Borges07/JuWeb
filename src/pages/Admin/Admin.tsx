@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -17,6 +18,11 @@ import {
   updatePlayer,
 } from '../../services/playerService'
 import {
+  createCategory,
+  deleteCategory,
+  getCategories,
+} from '../../services/categoryService'
+import {
   closeVoting,
   getSettings,
   openVoting,
@@ -25,7 +31,7 @@ import { getResults, resetVotes } from '../../services/voteService'
 import { validatePlayer } from '../../utils/validators'
 import { fileToResizedDataUrl } from '../../utils/image'
 import Loading from '../../components/Loading/Loading'
-import type { Player, PlayerResult, Settings } from '../../types'
+import type { Category, Player, PlayerResult, Settings } from '../../types'
 
 const EMPTY_FORM = { name: '', number: '', category: '', photo: '' }
 
@@ -48,9 +54,18 @@ export function Admin() {
 
   const [board, setBoard] = useState<PlayerResult[]>([])
 
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoryInput, setCategoryInput] = useState('')
+  const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [categoryBusy, setCategoryBusy] = useState(false)
+
   const reloadBoard = useCallback(async () => {
     const all = await getAllPlayers()
     setBoard(await getResults(all))
+  }, [])
+
+  const reloadCategories = useCallback(async () => {
+    setCategories(await getCategories())
   }, [])
 
   useEffect(() => {
@@ -60,9 +75,49 @@ export function Admin() {
       setChampionship(s.championship)
       setMatch(s.match)
       await reloadBoard()
+      await reloadCategories()
     }
     void init()
-  }, [reloadBoard])
+  }, [reloadBoard, reloadCategories])
+
+  // Opções do <select> de categoria. Inclui a categoria atual do formulário
+  // mesmo que ela ainda não esteja cadastrada (dados antigos), para que editar
+  // um jogador não descarte silenciosamente a categoria dele.
+  const categoryOptions = useMemo(() => {
+    const names = categories.map((c) => c.name)
+    const current = form.category.trim()
+    if (current && !names.some((n) => n.toLowerCase() === current.toLowerCase())) {
+      return [current, ...names]
+    }
+    return names
+  }, [categories, form.category])
+
+  async function handleAddCategory(event: FormEvent) {
+    event.preventDefault()
+    setCategoryError(null)
+    setCategoryBusy(true)
+    try {
+      await createCategory(categoryInput)
+      setCategoryInput('')
+      await reloadCategories()
+    } catch (err) {
+      setCategoryError(
+        err instanceof Error ? err.message : 'Não foi possível cadastrar a categoria.',
+      )
+    } finally {
+      setCategoryBusy(false)
+    }
+  }
+
+  async function handleDeleteCategory(category: Category) {
+    if (!confirm(`Remover a categoria "${category.name}"?`)) return
+    try {
+      await deleteCategory(category.id)
+      await reloadCategories()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível remover a categoria.')
+    }
+  }
 
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -262,6 +317,57 @@ export function Admin() {
         )}
       </div>
 
+      {/* Cadastro de categorias (usadas no select do jogador e no filtro) */}
+      <div className="admin__panel">
+        <h2>Categorias</h2>
+        <p className="page__subtitle">
+          Cadastre as categorias aqui para reaproveitá-las no cadastro dos
+          jogadores. Nomes repetidos são bloqueados para não duplicar no filtro.
+        </p>
+        <form className="form" onSubmit={handleAddCategory}>
+          <div className="form__row">
+            <label className="form__field">
+              <span>Nova categoria (ex.: Sub08 | Celina Amaral)</span>
+              <input
+                value={categoryInput}
+                onChange={(e) => {
+                  setCategoryInput(e.target.value)
+                  setCategoryError(null)
+                }}
+              />
+              {categoryError && <small className="form__error">{categoryError}</small>}
+            </label>
+            <button
+              className="btn btn--primary category-form__add"
+              type="submit"
+              disabled={categoryBusy || categoryInput.trim() === ''}
+            >
+              Adicionar categoria
+            </button>
+          </div>
+        </form>
+
+        {categories.length === 0 ? (
+          <p>Nenhuma categoria cadastrada ainda.</p>
+        ) : (
+          <ul className="category-list">
+            {categories.map((category) => (
+              <li className="category-list__item" key={category.id}>
+                <span>{category.name}</span>
+                <button
+                  className="category-list__remove"
+                  type="button"
+                  aria-label={`Remover categoria ${category.name}`}
+                  onClick={() => handleDeleteCategory(category)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* Cadastro / edição de jogador */}
       <div className="admin__panel">
         <h2>{editingId ? 'Editar jogador' : 'Cadastrar jogador'}</h2>
@@ -287,11 +393,24 @@ export function Admin() {
           </div>
 
           <label className="form__field">
-            <span>Categoria (ex.: Sub-15, Adulto)</span>
-            <input
+            <span>Categoria</span>
+            <select
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
-            />
+              disabled={categories.length === 0}
+            >
+              <option value="">Sem categoria</option>
+              {categoryOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            {categories.length === 0 && (
+              <small className="form__hint">
+                Cadastre uma categoria acima para poder selecioná-la.
+              </small>
+            )}
           </label>
 
           <div className="form__field">

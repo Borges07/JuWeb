@@ -258,20 +258,7 @@
   background: var(--surface);
 }
 
-.ranking-card--leader {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
-
-.ranking-card__position {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--accent);
-  min-width: 32px;
-  text-align: center;
-}
-
-/* Foto do atleta no ranking: quadrada com cantos arredondados */
+/* Foto do atleta no card: quadrada com cantos arredondados */
 .ranking-card__photo {
   width: 54px;
   height: 54px;
@@ -293,24 +280,12 @@
 .ranking-card__body {
   flex: 1;
   min-width: 0;
-}
-
-.ranking-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.ranking-card__who {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  min-width: 0;
 }
 
-.ranking-card__who strong {
+.ranking-card__name {
   font-size: 17px;
   overflow-wrap: break-word;
 }
@@ -320,23 +295,13 @@
   color: var(--accent);
 }
 
-.ranking-card__votes {
-  font-size: 15px;
+/* Seta sutil indicando que o card abre os detalhes */
+.ranking-card__cta {
+  font-size: 24px;
+  line-height: 1;
   color: var(--text);
-  white-space: nowrap;
-}
-
-.ranking-card__bar {
-  height: 10px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-
-.ranking-card__bar-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
+  flex-shrink: 0;
+  padding: 0 4px;
 }
 
 /* ---------- Formulários ---------- */
@@ -370,13 +335,77 @@
   font: inherit;
 }
 
-.form__field input:focus {
+.form__field select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.form__field input:focus,
+.form__field select:focus {
   outline: 2px solid var(--accent-border);
   outline-offset: 1px;
   border-color: var(--accent);
 }
 
+.form__field select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .form__error {
+  color: var(--danger);
+}
+
+.form__hint {
+  color: var(--text);
+}
+
+/* ---------- Gerenciador de categorias ---------- */
+.category-form__add {
+  align-self: flex-end;
+}
+
+.category-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-list__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-h);
+}
+
+.category-list__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.category-list__remove:hover {
+  background: rgba(229, 72, 77, 0.16);
   color: var(--danger);
 }
 
@@ -680,19 +709,24 @@
   margin: 4px 0 0;
 }
 
-.modal__tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
+/* Foto com selo do número da camisa no canto */
+.modal__photo-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
 }
 
-.modal__tag {
+.modal__photo-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
   padding: 4px 12px;
   border-radius: 999px;
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
   font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .modal__stats {
@@ -704,12 +738,14 @@
 
 .modal__stat {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 12px 8px;
-  border-radius: 10px;
+  gap: 4px;
+  padding: 14px 10px;
+  border-radius: 12px;
   background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
 .modal__stat strong {
@@ -717,9 +753,18 @@
   color: var(--accent);
 }
 
+/* Box de texto (categoria): fonte menor e quebra de linha p/ nomes longos */
+.modal__stat--text strong {
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
 .modal__stat span {
   font-size: 13px;
   color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 /* Botão de votar dentro do modal */

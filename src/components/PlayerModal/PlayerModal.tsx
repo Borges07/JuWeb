@@ -1,15 +1,13 @@
 // Modal de detalhes do atleta — aberto ao clicar num card.
-// Mostra a foto grande e os dados. Se a votação está aberta e o dispositivo
-// ainda não votou, mostra o botão de votar; senão, apenas os dados.
-// Não exibe a quantidade de votos (público vê só a porcentagem).
+// Mostra a foto grande e os dados (camisa e categoria). Se a votação está
+// aberta e o dispositivo ainda não votou, mostra o botão de votar.
+// Não exibe votos/posição: o andamento da votação fica só para o admin.
 
 import { useEffect, useRef } from 'react'
 import type { PlayerResult } from '../../types'
 
 interface PlayerModalProps {
   result: PlayerResult
-  position: number
-  totalVotes: number
   onClose: () => void
   /** Se true, mostra o botão de votar. */
   canVote?: boolean
@@ -22,16 +20,13 @@ interface PlayerModalProps {
 
 export function PlayerModal({
   result,
-  position,
-  totalVotes,
   onClose,
   canVote,
   voting,
   alreadyVoted,
   onVote,
 }: PlayerModalProps) {
-  const { player, votes } = result
-  const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
+  const { player } = result
 
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -67,27 +62,25 @@ export function PlayerModal({
           ×
         </button>
 
-        {player.photo ? (
-          <img className="modal__photo" src={player.photo} alt={player.name} />
-        ) : (
-          <div className="modal__photo modal__photo--empty">{player.number}</div>
-        )}
+        <div className="modal__photo-wrap">
+          {player.photo ? (
+            <img className="modal__photo" src={player.photo} alt={player.name} />
+          ) : (
+            <div className="modal__photo modal__photo--empty">{player.number}</div>
+          )}
+          <span className="modal__photo-badge">#{player.number}</span>
+        </div>
 
         <h2 className="modal__name">{player.name}</h2>
 
-        <div className="modal__tags">
-          <span className="modal__tag">Camisa {player.number}</span>
-          {player.category && <span className="modal__tag">{player.category}</span>}
-        </div>
-
         <div className="modal__stats">
           <div className="modal__stat">
-            <strong>{position}º</strong>
-            <span>Posição</span>
+            <strong>{player.number}</strong>
+            <span>Camisa</span>
           </div>
-          <div className="modal__stat">
-            <strong>{percent}%</strong>
-            <span>dos votos</span>
+          <div className="modal__stat modal__stat--text">
+            <strong>{player.category || 'Sem categoria'}</strong>
+            <span>Categoria</span>
           </div>
         </div>
 
