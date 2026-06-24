@@ -4,6 +4,7 @@ export const COLLECTIONS = {
   PLAYERS: 'players',
   VOTES: 'votes',
   SETTINGS: 'settings',
+  CATEGORIES: 'categories',
 } as const
 
 /** Documento único usado para as configurações globais da votação. */

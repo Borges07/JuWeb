@@ -1,24 +1,19 @@
-// Linha de ranking usada na tela de resultados.
+// Cartão de atleta na tela pública de votação.
+// Mostra apenas foto, nome, camisa e categoria — sem posição/percentual, para
+// não revelar o andamento da votação (só o admin vê o placar).
 
 import type { PlayerResult } from '../../types'
 
 interface RankingCardProps {
-  position: number
   result: PlayerResult
-  /** Total de votos, para calcular o percentual da barra. */
-  totalVotes: number
   /** Se informado, o card vira clicável (abre os detalhes do atleta). */
   onClick?: () => void
 }
 
-export function RankingCard({ position, result, totalVotes, onClick }: RankingCardProps) {
-  const { player, votes } = result
-  const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
+export function RankingCard({ result, onClick }: RankingCardProps) {
+  const { player } = result
 
-  const className =
-    'ranking-card' +
-    (position === 1 ? ' ranking-card--leader' : '') +
-    (onClick ? ' ranking-card--clickable' : '')
+  const className = 'ranking-card' + (onClick ? ' ranking-card--clickable' : '')
 
   return (
     <div
@@ -37,8 +32,6 @@ export function RankingCard({ position, result, totalVotes, onClick }: RankingCa
           : undefined
       }
     >
-      <span className="ranking-card__position">{position}º</span>
-
       {player.photo ? (
         <img className="ranking-card__photo" src={player.photo} alt={player.name} />
       ) : (
@@ -48,20 +41,18 @@ export function RankingCard({ position, result, totalVotes, onClick }: RankingCa
       )}
 
       <div className="ranking-card__body">
-        <div className="ranking-card__header">
-          <div className="ranking-card__who">
-            <strong>{player.name}</strong>
-            <span className="ranking-card__category">
-              Camisa {player.number}
-              {player.category ? ` · ${player.category}` : ''}
-            </span>
-          </div>
-          <span className="ranking-card__votes">{percent}%</span>
-        </div>
-        <div className="ranking-card__bar" aria-hidden="true">
-          <div className="ranking-card__bar-fill" style={{ width: `${percent}%` }} />
-        </div>
+        <strong className="ranking-card__name">{player.name}</strong>
+        <span className="ranking-card__category">
+          Camisa {player.number}
+          {player.category ? ` · ${player.category}` : ''}
+        </span>
       </div>
+
+      {onClick && (
+        <span className="ranking-card__cta" aria-hidden="true">
+          ›
+        </span>
+      )}
     </div>
   )
 }

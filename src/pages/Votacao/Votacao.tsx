@@ -1,7 +1,8 @@
-// Página unificada de Votação + Resultados.
-// Mostra os atletas ativos em ranking (só a %). Ao clicar num atleta abre o
-// modal: se a votação está aberta e o dispositivo ainda não votou, aparece o
-// botão de votar; caso contrário, mostra apenas os dados.
+// Página pública de Votação.
+// Lista os atletas ativos em ordem neutra (por camisa), SEM revelar votos,
+// percentual ou posição — o andamento da votação fica só para o admin. Ao
+// clicar num atleta abre o modal: se a votação está aberta e o dispositivo
+// ainda não votou, aparece o botão de votar; senão, mostra apenas os dados.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getActivePlayers } from '../../services/playerService'
@@ -13,12 +14,6 @@ import PlayerModal from '../../components/PlayerModal/PlayerModal'
 import Loading from '../../components/Loading/Loading'
 import type { PlayerResult, Settings } from '../../types'
 
-interface RankedResult {
-  result: PlayerResult
-  /** Posição no ranking geral (independe do filtro). */
-  position: number
-}
-
 export function Votacao() {
   const [results, setResults] = useState<PlayerResult[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +22,7 @@ export function Votacao() {
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
-  const [selected, setSelected] = useState<RankedResult | null>(null)
+  const [selected, setSelected] = useState<PlayerResult | null>(null)
   const closeModal = useCallback(() => setSelected(null), [])
 
   const { voting, alreadyVoted, error: voteError, vote } = useVote()
@@ -55,10 +50,10 @@ export function Votacao() {
     void load()
   }, [loadResults])
 
-  const totalVotes = results.reduce((sum, r) => sum + r.votes, 0)
-
-  const ranked = useMemo<RankedResult[]>(
-    () => results.map((result, index) => ({ result, position: index + 1 })),
+  // Ordem neutra (por número da camisa) para não denunciar o placar pela
+  // posição na lista. A apuração por votos fica restrita ao painel admin.
+  const ordered = useMemo(
+    () => [...results].sort((a, b) => a.player.number - b.player.number),
     [results],
   )
 
@@ -84,7 +79,7 @@ export function Votacao() {
     ? categoryFilter
     : ''
 
-  const filtered = ranked.filter(({ result }) => {
+  const filtered = ordered.filter((result) => {
     const term = search.trim().toLowerCase()
     const matchName = !term || result.player.name.toLowerCase().includes(term)
     const matchCategory =
@@ -99,10 +94,10 @@ export function Votacao() {
   async function handleVote(playerId: string) {
     const ok = await vote(playerId)
     if (ok) {
-      // Atualiza percentuais e o próprio modal com os dados novos do atleta.
+      // Recarrega os dados e atualiza o modal com o atleta atualizado.
       const fresh = await loadResults()
-      const idx = fresh.findIndex((r) => r.player.id === playerId)
-      if (idx >= 0) setSelected({ result: fresh[idx], position: idx + 1 })
+      const updated = fresh.find((r) => r.player.id === playerId)
+      if (updated) setSelected(updated)
     }
   }
 
@@ -158,13 +153,11 @@ export function Votacao() {
           </div>
 
           <div className="ranking">
-            {filtered.map(({ result, position }) => (
+            {filtered.map((result) => (
               <RankingCard
                 key={result.player.id}
-                position={position}
                 result={result}
-                totalVotes={totalVotes}
-                onClick={() => setSelected({ result, position })}
+                onClick={() => setSelected(result)}
               />
             ))}
           </div>
@@ -175,13 +168,11 @@ export function Votacao() {
 
       {selected && (
         <PlayerModal
-          result={selected.result}
-          position={selected.position}
-          totalVotes={totalVotes}
+          result={selected}
           canVote={canVote}
           voting={voting}
           alreadyVoted={alreadyVoted}
-          onVote={() => handleVote(selected.result.player.id)}
+          onVote={() => handleVote(selected.player.id)}
           onClose={closeModal}
         />
       )}

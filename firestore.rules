@@ -37,5 +37,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Categorias: leitura pública (alimenta o filtro/seleção); escrita apenas admin.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

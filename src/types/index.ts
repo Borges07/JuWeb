@@ -15,6 +15,16 @@ export interface Player {
 /** Dados usados para criar/editar um jogador (sem o id gerado pelo Firestore). */
 export type PlayerInput = Omit<Player, 'id'>
 
+/**
+ * Categoria cadastrada pelo admin (ex.: "Sub08 | Celina Amaral").
+ * Mantida em coleção própria para padronizar os nomes e evitar duplicatas
+ * (variações de digitação) no filtro da votação.
+ */
+export interface Category {
+  id: string
+  name: string
+}
+
 export interface Vote {
   id: string
   playerId: string
