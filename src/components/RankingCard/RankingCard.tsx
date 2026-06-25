@@ -2,17 +2,15 @@
 // Mostra apenas foto, nome, camisa e categoria — sem posição/percentual, para
 // não revelar o andamento da votação (só o admin vê o placar).
 
-import type { PlayerResult } from '../../types'
+import type { Player } from '../../types'
 
 interface RankingCardProps {
-  result: PlayerResult
+  player: Player
   /** Se informado, o card vira clicável (abre os detalhes do atleta). */
   onClick?: () => void
 }
 
-export function RankingCard({ result, onClick }: RankingCardProps) {
-  const { player } = result
-
+export function RankingCard({ player, onClick }: RankingCardProps) {
   const className = 'ranking-card' + (onClick ? ' ranking-card--clickable' : '')
 
   return (
