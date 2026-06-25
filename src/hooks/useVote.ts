@@ -1,35 +1,32 @@
-// Hook que encapsula o fluxo de votação:
-// fingerprint -> verifica se já votou -> registra voto.
+// Hook que encapsula o fluxo de votação com login.
+// Exige usuário autenticado (Google). 1 voto por conta (uid).
 
 import { useCallback, useEffect, useState } from 'react'
-import { getFingerprint } from '../utils/fingerprint'
-import {
-  AlreadyVotedError,
-  castVote,
-  hasFingerprintVoted,
-  hasVotedLocally,
-} from '../services/voteService'
+import { useAuth } from './useAuth'
+import { AlreadyVotedError, castVote, hasVoted } from '../services/voteService'
 
 interface UseVoteState {
   voting: boolean
-  /** true se este dispositivo já votou (LocalStorage ou Firestore). */
+  /** true se a conta logada já votou. */
   alreadyVoted: boolean
   error: string | null
   vote: (playerId: string) => Promise<boolean>
 }
 
 export function useVote(): UseVoteState {
+  const { user } = useAuth()
   const [voting, setVoting] = useState(false)
-  const [alreadyVoted, setAlreadyVoted] = useState<boolean>(hasVotedLocally())
+  const [alreadyVoted, setAlreadyVoted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Confere no Firestore (2ª camada) mesmo que o LocalStorage tenha sido limpo.
+  // Ao logar/trocar de conta, confere no Firestore se aquela conta já votou.
+  // (Sem usuário resolve como "não votou".) Só setState dentro do callback.
   useEffect(() => {
-    if (alreadyVoted) return
     let cancelled = false
-    hasFingerprintVoted(getFingerprint())
+    const check = user ? hasVoted(user.uid) : Promise.resolve(false)
+    check
       .then((voted) => {
-        if (!cancelled && voted) setAlreadyVoted(true)
+        if (!cancelled) setAlreadyVoted(voted)
       })
       .catch(() => {
         /* falha de rede não bloqueia a tentativa de voto */
@@ -37,27 +34,33 @@ export function useVote(): UseVoteState {
     return () => {
       cancelled = true
     }
-  }, [alreadyVoted])
+  }, [user])
 
-  const vote = useCallback(async (playerId: string): Promise<boolean> => {
-    setVoting(true)
-    setError(null)
-    try {
-      await castVote(playerId, getFingerprint())
-      setAlreadyVoted(true)
-      return true
-    } catch (err) {
-      // Só bloqueia como "já votou" se for voto duplicado de verdade.
-      // Erros de rede/permissão apenas exibem a mensagem e permitem tentar de novo.
-      if (err instanceof AlreadyVotedError) {
-        setAlreadyVoted(true)
+  const vote = useCallback(
+    async (playerId: string): Promise<boolean> => {
+      if (!user) {
+        setError('Entre com o Google para votar.')
+        return false
       }
-      setError(err instanceof Error ? err.message : 'Não foi possível registrar o voto.')
-      return false
-    } finally {
-      setVoting(false)
-    }
-  }, [])
+      setVoting(true)
+      setError(null)
+      try {
+        await castVote(user.uid, playerId)
+        setAlreadyVoted(true)
+        return true
+      } catch (err) {
+        // Só bloqueia como "já votou" se for voto duplicado de verdade.
+        if (err instanceof AlreadyVotedError) {
+          setAlreadyVoted(true)
+        }
+        setError(err instanceof Error ? err.message : 'Não foi possível registrar o voto.')
+        return false
+      } finally {
+        setVoting(false)
+      }
+    },
+    [user],
+  )
 
   return { voting, alreadyVoted, error, vote }
 }

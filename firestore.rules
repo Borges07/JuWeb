@@ -2,18 +2,24 @@ rules_version = '2';
 
 // Regras de segurança do Firestore para a votação.
 //
-// Resumo (conforme especificação):
-//   Usuário comum (não autenticado): pode LER jogadores e CRIAR voto.
-//   Usuário comum NÃO pode: alterar/excluir votos, nem alterar jogadores.
-//   Administrador (autenticado): controle total.
+// Identidades:
+//   Visitante (não logado): LÊ jogadores/categorias/configurações.
+//   Votante (login Google):  cria 1 voto (doc id = uid). Não é admin.
+//   Admin (allowlist):       controle total; é o único que LÊ os votos.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Qualquer pessoa autenticada é tratada como administrador.
-    // (Para restringir a admins específicos, troque por uma checagem de
-    //  custom claims, ex.: request.auth.token.admin == true.)
+    // Admin = usuário autenticado cujo uid está na coleção `admins`.
     function isAdmin() {
-      return request.auth != null;
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Allowlist de administradores (doc id = uid). Gerenciada só pelo Console.
+    // Cada usuário pode checar apenas o próprio doc (para a tela saber se é admin).
+    match /admins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
     }
 
     // Jogadores: leitura pública; escrita apenas admin.
@@ -22,13 +28,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Votos: leitura pública (para apurar resultados); criação pública,
-    // porém sem permitir alteração/exclusão por usuário comum.
+    // Votos: 1 por conta (doc id = uid).
+    //   - get do próprio voto: o dono (para saber se já votou) ou admin.
+    //   - list (apurar resultados): apenas admin.
+    //   - create: precisa estar logado e o id do doc tem que ser o uid.
+    //   - update/delete: apenas admin.
     match /votes/{voteId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['playerId', 'fingerprint', 'createdAt'])
-                    && request.resource.data.playerId is string
-                    && request.resource.data.fingerprint is string;
+      allow get: if isAdmin() || (request.auth != null && request.auth.uid == voteId);
+      allow list: if isAdmin();
+      allow create: if request.auth != null
+                    && request.auth.uid == voteId
+                    && request.resource.data.playerId is string;
       allow update, delete: if isAdmin();
     }
 

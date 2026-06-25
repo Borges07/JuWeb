@@ -26,11 +26,10 @@ export interface Category {
 }
 
 export interface Vote {
+  /** ID do documento = uid do votante (garante 1 voto por conta). */
   id: string
   playerId: string
-  /** Assinatura do dispositivo usada para evitar votos duplicados. */
-  fingerprint: string
-  /** Timestamp ISO de criação. */
+  /** Timestamp de criação (serverTimestamp). */
   createdAt: string
 }
 

@@ -5,10 +5,9 @@ export const COLLECTIONS = {
   VOTES: 'votes',
   SETTINGS: 'settings',
   CATEGORIES: 'categories',
+  /** Allowlist de administradores (doc id = uid do usuário). */
+  ADMINS: 'admins',
 } as const
 
 /** Documento único usado para as configurações globais da votação. */
 export const SETTINGS_DOC_ID = 'global'
-
-/** Chave usada no LocalStorage como 1ª camada anti-voto-duplo. */
-export const HAS_VOTED_KEY = 'juju:hasVoted'
