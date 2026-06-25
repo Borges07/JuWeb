@@ -1,33 +1,42 @@
 // Modal de detalhes do atleta — aberto ao clicar num card.
-// Mostra a foto grande e os dados (camisa e categoria). Se a votação está
-// aberta e o dispositivo ainda não votou, mostra o botão de votar.
+// Mostra a foto grande e os dados (camisa e categoria). Conforme o estado da
+// votação/login, mostra: entrar com Google, votar, ou "já votou".
 // Não exibe votos/posição: o andamento da votação fica só para o admin.
 
 import { useEffect, useRef } from 'react'
-import type { PlayerResult } from '../../types'
+import type { Player } from '../../types'
 
 interface PlayerModalProps {
-  result: PlayerResult
+  player: Player
   onClose: () => void
-  /** Se true, mostra o botão de votar. */
+  /** Votação aberta no momento. */
+  votingOpen?: boolean
+  /** Usuário autenticado (pode votar). */
+  isLoggedIn?: boolean
+  /** votação aberta + logado + ainda não votou. */
   canVote?: boolean
   /** true enquanto o voto está sendo registrado. */
   voting?: boolean
-  /** true se o dispositivo já votou. */
+  /** true se a conta já votou. */
   alreadyVoted?: boolean
+  /** true enquanto o login Google está em andamento. */
+  loggingIn?: boolean
+  onLogin?: () => void
   onVote?: () => void
 }
 
 export function PlayerModal({
-  result,
+  player,
   onClose,
+  votingOpen,
+  isLoggedIn,
   canVote,
   voting,
   alreadyVoted,
+  loggingIn,
+  onLogin,
   onVote,
 }: PlayerModalProps) {
-  const { player } = result
-
   const dialogRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,6 +55,36 @@ export function PlayerModal({
       document.body.style.overflow = prevOverflow
     }
   }, [onClose])
+
+  function renderAction() {
+    if (!votingOpen) return null
+    if (alreadyVoted) return <p className="modal__voted">✓ Você já votou</p>
+    if (!isLoggedIn) {
+      return (
+        <button
+          className="btn btn--primary modal__vote"
+          type="button"
+          disabled={loggingIn}
+          onClick={onLogin}
+        >
+          {loggingIn ? 'Entrando...' : 'Entrar com Google para votar'}
+        </button>
+      )
+    }
+    if (canVote && onVote) {
+      return (
+        <button
+          className="btn btn--primary modal__vote"
+          type="button"
+          disabled={voting}
+          onClick={onVote}
+        >
+          {voting ? 'Registrando...' : 'Votar neste atleta'}
+        </button>
+      )
+    }
+    return null
+  }
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
@@ -84,18 +123,7 @@ export function PlayerModal({
           </div>
         </div>
 
-        {canVote && onVote ? (
-          <button
-            className="btn btn--primary modal__vote"
-            type="button"
-            disabled={voting}
-            onClick={onVote}
-          >
-            {voting ? 'Registrando...' : 'Votar neste atleta'}
-          </button>
-        ) : alreadyVoted ? (
-          <p className="modal__voted">✓ Você já votou</p>
-        ) : null}
+        {renderAction()}
       </div>
     </div>
   )
