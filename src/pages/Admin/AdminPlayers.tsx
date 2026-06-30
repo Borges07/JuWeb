@@ -1,60 +1,74 @@
-// Sub-tela: cadastro, edição e gestão dos jogadores.
+// Sub-tela GLOBAL de Jogadores: cadastro, edição e gestão de todos os atletas.
+// Cada atleta é vinculado a uma votação pelo campo "Votação". A votação só
+// consome os atletas ativos vinculados a ela.
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
   type ChangeEvent,
   type FormEvent,
 } from 'react'
-import { usePlayers } from '../../hooks/usePlayers'
+import { Link } from 'react-router-dom'
 import {
   createPlayer,
   deletePlayer,
+  getAllPlayers,
   setPlayerActive,
   updatePlayer,
 } from '../../services/playerService'
 import { getCategories } from '../../services/categoryService'
+import { getVotings } from '../../services/votingService'
 import { validatePlayer } from '../../utils/validators'
 import { fileToResizedDataUrl } from '../../utils/image'
+import { ROUTES } from '../../constants/routes'
 import Loading from '../../components/Loading/Loading'
 import Icon from '../../components/Icon/Icon'
 import { AdminPageHeader } from './AdminLayout'
-import type { Category, Player } from '../../types'
+import type { Category, Player, Voting } from '../../types'
 
-const EMPTY_FORM = { name: '', number: '', category: '', photo: '' }
+const EMPTY_FORM = { name: '', number: '', category: '', photo: '', votingId: '' }
 
 export function AdminPlayers() {
-  const { players, loading, reload } = usePlayers(false)
+  const [players, setPlayers] = useState<Player[] | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [votings, setVotings] = useState<Voting[]>([])
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  // Usado para "resetar" o <input type="file"> após cadastrar/editar.
   const [fileKey, setFileKey] = useState(0)
   const [busy, setBusy] = useState(false)
 
-  const [categories, setCategories] = useState<Category[]>([])
+  const reloadPlayers = useCallback(async () => {
+    setPlayers(await getAllPlayers())
+  }, [])
 
-  // Carrega as categorias para o <select> (await antes do setState + guarda de
-  // montagem, evitando setState síncrono no efeito / após desmontar).
   useEffect(() => {
     let active = true
-    async function loadCategories() {
-      const cats = await getCategories()
-      if (active) setCategories(cats)
+    async function load() {
+      const [p, c, v] = await Promise.all([getAllPlayers(), getCategories(), getVotings()])
+      if (!active) return
+      setPlayers(p)
+      setCategories(c)
+      setVotings(v)
     }
-    void loadCategories()
+    void load()
     return () => {
       active = false
     }
   }, [])
 
-  // Opções do <select> de categoria. Inclui a categoria atual do formulário
-  // mesmo que ela ainda não esteja cadastrada (dados antigos), para que editar
-  // um jogador não descarte silenciosamente a categoria dele.
+  // Mapa votingId -> título, para rotular cada atleta na lista.
+  const votingTitle = useMemo(() => {
+    const map = new Map<string, string>()
+    votings.forEach((v) => map.set(v.id, v.title))
+    return map
+  }, [votings])
+
   const categoryOptions = useMemo(() => {
     const names = categories.map((c) => c.name)
     const current = form.category.trim()
@@ -88,12 +102,12 @@ export function AdminPlayers() {
       number: String(player.number),
       category: player.category ?? '',
       photo: player.photo ?? '',
+      votingId: player.votingId,
     })
     setErrors({})
     setPhotoError(null)
     setSubmitError(null)
     setFileKey((k) => k + 1)
-    // Leva o admin de volta ao formulário no topo ao iniciar uma edição.
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -109,11 +123,10 @@ export function AdminPlayers() {
     event.preventDefault()
     const parsed = {
       name: form.name.trim(),
-      // Número vazio vira NaN para a validação barrar (em vez de salvar 0).
       number: form.number.trim() === '' ? NaN : Number(form.number),
-      // Ao editar, '' limpa o campo; ao cadastrar, vazio não grava nada.
       category: editingId ? form.category.trim() : form.category.trim() || undefined,
       photo: editingId ? form.photo : form.photo || undefined,
+      votingId: form.votingId,
     }
     const validation = validatePlayer(parsed)
     setErrors(validation)
@@ -128,10 +141,10 @@ export function AdminPlayers() {
         await createPlayer({ ...parsed, active: true })
       }
       cancelEdit()
-      await reload()
+      await reloadPlayers()
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Não foi possível salvar o jogador.',
+        err instanceof Error ? err.message : 'Não foi possível salvar o atleta.',
       )
     } finally {
       setBusy(false)
@@ -141,38 +154,46 @@ export function AdminPlayers() {
   async function handleToggleActive(id: string, active: boolean) {
     try {
       await setPlayerActive(id, !active)
-      await reload()
+      await reloadPlayers()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o jogador.')
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o atleta.')
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Remover este jogador? Ele sai da votação e dos resultados.')) return
+    if (!confirm('Remover este atleta? Ele sai da votação e dos resultados.')) return
     if (editingId === id) cancelEdit()
     try {
       await deletePlayer(id)
-      await reload()
+      await reloadPlayers()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Não foi possível remover o jogador.')
+      alert(err instanceof Error ? err.message : 'Não foi possível remover o atleta.')
     }
   }
+
+  const noVotings = votings.length === 0
 
   return (
     <div className="admin-page">
       <AdminPageHeader
         icon="users"
         title="Jogadores"
-        subtitle="Cadastre, edite e controle quem aparece na votação."
+        subtitle="Cadastre os atletas e vincule cada um a uma votação."
       >
-        <span className="badge badge--neutral">{players.length} no total</span>
+        {players && <span className="badge badge--neutral">{players.length} no total</span>}
       </AdminPageHeader>
 
       {/* Cadastro / edição */}
       <div className="panel">
-        <h2>
-          {editingId ? 'Editar jogador' : 'Cadastrar jogador'}
-        </h2>
+        <h2>{editingId ? 'Editar atleta' : 'Cadastrar atleta'}</h2>
+
+        {noVotings && (
+          <p className="alert alert--info">
+            Crie uma votação primeiro em{' '}
+            <Link to={ROUTES.ADMIN_VOTINGS}>Votações</Link> para poder vincular o atleta.
+          </p>
+        )}
+
         <form className="form" onSubmit={handleSubmitPlayer}>
           <div className="form__row">
             <label className="form__field">
@@ -193,6 +214,23 @@ export function AdminPlayers() {
               {errors.number && <small className="form__error">{errors.number}</small>}
             </label>
           </div>
+
+          <label className="form__field">
+            <span>Votação</span>
+            <select
+              value={form.votingId}
+              onChange={(e) => setForm({ ...form, votingId: e.target.value })}
+              disabled={noVotings}
+            >
+              <option value="">Selecione a votação</option>
+              {votings.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.title}
+                </option>
+              ))}
+            </select>
+            {errors.votingId && <small className="form__error">{errors.votingId}</small>}
+          </label>
 
           <label className="form__field">
             <span>Categoria</span>
@@ -217,7 +255,7 @@ export function AdminPlayers() {
           </label>
 
           <div className="form__field">
-            <span id="photo-label">Foto do jogador (opcional)</span>
+            <span id="photo-label">Foto do atleta (opcional)</span>
             <div className="photo-upload">
               {form.photo ? (
                 <img className="photo-upload__preview" src={form.photo} alt="Prévia da foto" />
@@ -247,12 +285,12 @@ export function AdminPlayers() {
             {photoError && <small className="form__error">{photoError}</small>}
           </div>
 
-          {submitError && <p className="alert alert--error">{submitError}</p>}
+          {submitError && <p className="alert alert--error" role="alert">{submitError}</p>}
 
           <div className="admin__actions">
-            <button className="btn btn--primary" type="submit" disabled={busy}>
+            <button className="btn btn--primary" type="submit" disabled={busy || noVotings}>
               <Icon name={editingId ? 'check' : 'plus'} />
-              {editingId ? 'Salvar alterações' : 'Adicionar jogador'}
+              {editingId ? 'Salvar alterações' : 'Adicionar atleta'}
             </button>
             {editingId && (
               <button className="btn btn--ghost" type="button" onClick={cancelEdit}>
@@ -263,15 +301,15 @@ export function AdminPlayers() {
         </form>
       </div>
 
-      {/* Lista de jogadores */}
+      {/* Lista de atletas */}
       <div className="panel">
-        <h2>Jogadores cadastrados</h2>
-        {loading ? (
+        <h2>Atletas cadastrados</h2>
+        {players === null ? (
           <Loading />
         ) : players.length === 0 ? (
           <div className="empty-state">
             <Icon name="users" />
-            <strong>Nenhum jogador ainda</strong>
+            <strong>Nenhum atleta ainda</strong>
             <p>Use o formulário acima para cadastrar o primeiro atleta.</p>
           </div>
         ) : (
@@ -296,6 +334,10 @@ export function AdminPlayers() {
                     <span className={player.active ? 'is-active' : 'is-inactive'}>
                       {player.active ? 'Ativo' : 'Inativo'}
                     </span>
+                  </span>
+                  <span className="player-list__voting">
+                    <Icon name="trophy" />
+                    {votingTitle.get(player.votingId) ?? 'Sem votação'}
                   </span>
                 </div>
 

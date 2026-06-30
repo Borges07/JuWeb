@@ -1,8 +1,9 @@
-// Operações de votos no Firestore (coleção `votes`).
+// Operações de votos no Firestore.
 //
-// Cada voto é um documento cujo ID é o `uid` do usuário autenticado (login
-// Google). Isso garante 1 voto por conta no nível do servidor (regras do
-// Firestore), à prova de limpar cache, trocar navegador ou aparelho.
+// Os votos vivem na subcoleção `votes` de cada votação:
+// votings/{votingId}/votes/{uid}. Como o ID do documento é o `uid` do usuário
+// autenticado (login Google), a regra do Firestore garante 1 voto por conta
+// POR VOTAÇÃO — à prova de limpar cache, trocar navegador ou aparelho.
 
 import {
   collection,
@@ -17,28 +18,39 @@ import { db } from './firebase/config'
 import { COLLECTIONS } from '../constants/collections'
 import type { PlayerResult, Player, Vote } from '../types'
 
-const votesRef = collection(db, COLLECTIONS.VOTES)
+/** Referência à subcoleção de votos de uma votação. */
+function votesRef(votingId: string) {
+  return collection(db, COLLECTIONS.VOTINGS, votingId, COLLECTIONS.VOTES)
+}
+
+function voteDoc(votingId: string, uid: string) {
+  return doc(db, COLLECTIONS.VOTINGS, votingId, COLLECTIONS.VOTES, uid)
+}
 
 /** Erro específico para "esta conta já votou" (distingue de erro de rede). */
 export class AlreadyVotedError extends Error {
   constructor() {
-    super('Você já votou com esta conta.')
+    super('Você já votou nesta votação com esta conta.')
     this.name = 'AlreadyVotedError'
   }
 }
 
-/** Verifica se o usuário (uid) já registrou um voto. */
-export async function hasVoted(uid: string): Promise<boolean> {
-  const snap = await getDoc(doc(db, COLLECTIONS.VOTES, uid))
+/** Verifica se o usuário (uid) já votou nesta votação. */
+export async function hasVoted(votingId: string, uid: string): Promise<boolean> {
+  const snap = await getDoc(voteDoc(votingId, uid))
   return snap.exists()
 }
 
 /**
- * Registra o voto do usuário. O documento usa o `uid` como ID, então a regra
- * do Firestore só permite criar uma vez. Lança AlreadyVotedError se já votou.
+ * Registra o voto do usuário nesta votação. O documento usa o `uid` como ID,
+ * então só é possível criar uma vez. Lança AlreadyVotedError se já votou.
  */
-export async function castVote(uid: string, playerId: string): Promise<void> {
-  const ref = doc(db, COLLECTIONS.VOTES, uid)
+export async function castVote(
+  votingId: string,
+  uid: string,
+  playerId: string,
+): Promise<void> {
+  const ref = voteDoc(votingId, uid)
   const existing = await getDoc(ref)
   if (existing.exists()) {
     throw new AlreadyVotedError()
@@ -50,15 +62,18 @@ export async function castVote(uid: string, playerId: string): Promise<void> {
   })
 }
 
-/** Retorna todos os votos (uso em resultados/admin — leitura restrita a admin). */
-export async function getAllVotes(): Promise<Pick<Vote, 'playerId'>[]> {
-  const snap = await getDocs(votesRef)
+/** Retorna todos os votos da votação (uso em resultados/admin). */
+export async function getAllVotes(votingId: string): Promise<Pick<Vote, 'playerId'>[]> {
+  const snap = await getDocs(votesRef(votingId))
   return snap.docs.map((d) => ({ playerId: String(d.data().playerId ?? '') }))
 }
 
-/** Agrega os votos por jogador, ordenando do mais votado para o menos votado. */
-export async function getResults(players: Player[]): Promise<PlayerResult[]> {
-  const votes = await getAllVotes()
+/** Agrega os votos por atleta, do mais votado para o menos votado. */
+export async function getResults(
+  votingId: string,
+  players: Player[],
+): Promise<PlayerResult[]> {
+  const votes = await getAllVotes(votingId)
   const counts = new Map<string, number>()
   for (const vote of votes) {
     counts.set(vote.playerId, (counts.get(vote.playerId) ?? 0) + 1)
@@ -70,10 +85,9 @@ export async function getResults(players: Player[]): Promise<PlayerResult[]> {
 }
 
 /**
- * Reinicia a votação apagando todos os votos.
- * Atenção: operação irreversível. Use com cuidado no painel admin.
+ * Reinicia a votação apagando todos os votos dela. Irreversível.
  */
-export async function resetVotes(): Promise<void> {
-  const snap = await getDocs(votesRef)
+export async function resetVotes(votingId: string): Promise<void> {
+  const snap = await getDocs(votesRef(votingId))
   await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)))
 }
