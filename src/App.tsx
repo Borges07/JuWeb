@@ -9,14 +9,16 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <NavLink to={ROUTES.HOME} className="app__brand">
-          <img src="/favicon.png" alt="ADEC Futsal" className="app__logo" />
-          <span>ADEC Futsal</span>
-        </NavLink>
-        <nav className="app__nav">
-          <NavLink to={ROUTES.VOTE}>Votação</NavLink>
-          <NavLink to={ROUTES.ADMIN}>Admin</NavLink>
-        </nav>
+        <div className="app__header-inner">
+          <NavLink to={ROUTES.HOME} className="app__brand">
+            <img src="/favicon.png" alt="ADEC Futsal" className="app__logo" />
+            <span>ADEC Futsal</span>
+          </NavLink>
+          <nav className="app__nav">
+            <NavLink to={ROUTES.VOTE}>Votação</NavLink>
+            <NavLink to={ROUTES.ADMIN}>Admin</NavLink>
+          </nav>
+        </div>
       </header>
 
       <main className="app__main">
@@ -24,7 +26,9 @@ function App() {
       </main>
 
       <footer className="app__footer">
-        <small>© ADEC - Futebol Clube</small>
+        <div className="app__footer-inner">
+          <small>© ADEC - Futsal</small>
+        </div>
       </footer>
     </div>
   )

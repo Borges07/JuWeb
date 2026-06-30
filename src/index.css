@@ -21,10 +21,57 @@
   --on-accent: #06201e; /* texto escuro sobre o turquesa */
   --accent-bg: rgba(104, 233, 228, 0.12);
   --accent-border: rgba(104, 233, 228, 0.55);
+  --accent-soft: rgba(104, 233, 228, 0.16);
   --danger: #e5484d;
+  /* Vermelho escurecido p/ preenchimento sólido com texto branco (>=4.5:1). */
+  --danger-strong: #c4393d;
+  /* Vermelho claro p/ TEXTO sobre superfícies escuras (mensagens de erro). */
+  --danger-text: #ff8084;
+  --danger-bg: rgba(229, 72, 77, 0.14);
+  --success: #46c79a;
+  --warning: #f5c84b;
 
+  /* Gradientes / superfícies translúcidas (profundidade e brilho modernos) */
+  /* Gradiente liso de 2 cores (sem cor intermediária) — evita a "faixa" de tom
+     diferente no meio do botão. Suave de ponta a ponta. */
+  --gradient-accent: linear-gradient(120deg, var(--turquesa) 0%, var(--azul) 100%);
+  --gradient-surface: linear-gradient(160deg, #172c45 0%, #112135 100%);
+  --surface-glass: rgba(18, 33, 52, 0.72);
+
+  /* Escala de espaçamento */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Raios */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 999px;
+
+  /* Largura máxima do conteúdo (header, main e footer compartilham, centralizado).
+     O fundo e as barras ocupam a tela toda — layout fluido, sem caixa/linhas. */
+  --content-max: 1200px;
+
+  /* Elevação */
   --shadow:
     rgba(0, 0, 0, 0.45) 0 10px 15px -3px, rgba(0, 0, 0, 0.3) 0 4px 6px -2px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 10px 30px -10px rgba(104, 233, 228, 0.35);
+
+  /* Transição padrão */
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -46,11 +93,7 @@
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
+  width: 100%;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -59,7 +102,23 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  /* Brilhos radiais sutis dão profundidade ao fundo navy sem mudar a paleta. */
+  background:
+    radial-gradient(1100px 560px at 50% -12%, rgba(104, 233, 228, 0.09), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(31, 79, 193, 0.12), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-h);
+}
+
+/* Scrollbar discreta, alinhada ao tema escuro */
+* {
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
 }
 
 h1,
