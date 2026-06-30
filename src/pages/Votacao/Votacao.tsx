@@ -120,7 +120,7 @@ export function Votacao() {
       {votingOpen && !isLoggedIn && (
         <div className="vote-login">
           <p className="page__subtitle">
-            Entre com sua conta Google para votar — 1 voto por pessoa.
+            Entre com sua conta Google para votar.
           </p>
           <button
             className="btn btn--primary"

@@ -6,7 +6,12 @@ import ProtectedRoute from '../components/ProtectedRoute/ProtectedRoute'
 import Home from '../pages/Home/Home'
 import Votacao from '../pages/Votacao/Votacao'
 import Login from '../pages/Login/Login'
-import Admin from '../pages/Admin/Admin'
+import AdminLayout from '../pages/Admin/AdminLayout'
+import AdminDashboard from '../pages/Admin/AdminDashboard'
+import AdminPlayers from '../pages/Admin/AdminPlayers'
+import AdminCategories from '../pages/Admin/AdminCategories'
+import AdminVoting from '../pages/Admin/AdminVoting'
+import AdminResults from '../pages/Admin/AdminResults'
 
 export function AppRoutes() {
   return (
@@ -16,14 +21,23 @@ export function AppRoutes() {
       <Route path={ROUTES.VOTE} element={<Votacao />} />
       <Route path={ROUTES.RESULTS} element={<Navigate to={ROUTES.VOTE} replace />} />
       <Route path={ROUTES.LOGIN} element={<Login />} />
+
+      {/* Painel admin: shell protegido + sub-telas (hub e responsabilidades). */}
       <Route
         path={ROUTES.ADMIN}
         element={
           <ProtectedRoute>
-            <Admin />
+            <AdminLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="jogadores" element={<AdminPlayers />} />
+        <Route path="categorias" element={<AdminCategories />} />
+        <Route path="votacao" element={<AdminVoting />} />
+        <Route path="resultados" element={<AdminResults />} />
+      </Route>
+
       {/* Qualquer rota desconhecida volta para a Home. */}
       <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
     </Routes>
