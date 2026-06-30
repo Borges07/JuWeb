@@ -1,57 +1,89 @@
 rules_version = '2';
 
-// Regras de segurança do Firestore para a votação.
+// Regras de segurança do Firestore — modelo de VOTAÇÕES MÚLTIPLAS.
+//
+// Estrutura:
+//   votings/{votingId}              -> votação (title, description, status, createdAt)
+//   votings/{votingId}/votes/{uid}  -> voto (id do doc = uid => 1 por usuário por votação)
+//   players/{playerId}              -> atleta (com `votingId` vinculando a uma votação)
+//   categories/{id}                 -> categorias globais
+//   admins/{uid}                    -> allowlist de administradores
 //
 // Identidades:
-//   Visitante (não logado): LÊ jogadores/categorias/configurações.
-//   Votante (login Google):  cria 1 voto (doc id = uid). Não é admin.
-//   Admin (allowlist):       controle total; é o único que LÊ os votos.
+//   Visitante (não logado): LÊ votações, atletas e categorias.
+//   Votante (login Google):  cria 1 voto por votação aberta; lê só o próprio voto.
+//   Admin (allowlist):       controle total; é o único que LISTA/apura os votos.
+//
+// Cole em: Firebase Console > Firestore Database > Regras > Publicar.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Admin = usuário autenticado cujo uid está na coleção `admins`.
+    // Admin = autenticado cujo uid está na coleção `admins`.
     function isAdmin() {
       return request.auth != null
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Status atual de uma votação (usado para liberar voto só quando aberta).
+    function votingStatus(votingId) {
+      return get(/databases/$(database)/documents/votings/$(votingId)).data.status;
+    }
+
+    // Dados do atleta (usado para validar o alvo do voto).
+    function player(playerId) {
+      return get(/databases/$(database)/documents/players/$(playerId)).data;
+    }
+
     // Allowlist de administradores (doc id = uid). Gerenciada só pelo Console.
-    // Cada usuário pode checar apenas o próprio doc (para a tela saber se é admin).
+    // Cada usuário lê apenas o próprio doc (para a tela saber se é admin).
     match /admins/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid;
       allow list, write: if false;
     }
 
-    // Jogadores: leitura pública; escrita apenas admin.
+    // Categorias globais: leitura pública; escrita apenas admin.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Atletas (raiz, com votingId): leitura pública; escrita apenas admin.
     match /players/{playerId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Votos: 1 por conta (doc id = uid).
-    //   - get do próprio voto: o dono (para saber se já votou) ou admin.
-    //   - list (apurar resultados): apenas admin.
-    //   - create: precisa estar logado e o id do doc tem que ser o uid.
-    //   - update/delete: apenas admin.
-    match /votes/{voteId} {
-      allow get: if isAdmin() || (request.auth != null && request.auth.uid == voteId);
-      allow list: if isAdmin();
-      allow create: if request.auth != null
-                    && request.auth.uid == voteId
-                    && request.resource.data.playerId is string;
-      allow update, delete: if isAdmin();
-    }
-
-    // Configurações da votação: leitura pública; escrita apenas admin.
-    match /settings/{docId} {
-      allow read: if true;
+    // Votações:
+    //   - get (1 doc): público (a tela de detalhe abre por id).
+    //   - list (query): admin vê tudo; público só consegue listar votações
+    //     aberta/pausada (rascunho/encerrada não vazam na lista pública).
+    //   - write (criar/editar/status/excluir): apenas admin.
+    match /votings/{votingId} {
+      allow get: if true;
+      allow list: if isAdmin() || resource.data.status in ['aberta', 'pausada'];
       allow write: if isAdmin();
-    }
 
-    // Categorias: leitura pública (alimenta o filtro/seleção); escrita apenas admin.
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      // Votos da votação: 1 por usuário (doc id = uid).
+      //   - get do próprio voto: o dono (para saber se já votou) ou admin.
+      //   - list (apurar resultados): apenas admin.
+      //   - update/delete: apenas admin (reiniciar/excluir).
+      match /votes/{voteId} {
+        allow get: if isAdmin() || (request.auth != null && request.auth.uid == voteId);
+        allow list: if isAdmin();
+        // Criar o próprio voto: logado, dono do doc, votação ABERTA, e apontando
+        // para um atleta EXISTENTE e ATIVO vinculado a ESTA votação (sem votos-
+        // fantasma), com apenas os campos esperados.
+        allow create: if request.auth != null
+                      && request.auth.uid == voteId
+                      && request.resource.data.keys().hasOnly(['playerId', 'createdAt'])
+                      && request.resource.data.playerId is string
+                      && request.resource.data.createdAt == request.time
+                      && votingStatus(votingId) == 'aberta'
+                      && exists(/databases/$(database)/documents/players/$(request.resource.data.playerId))
+                      && player(request.resource.data.playerId).votingId == votingId
+                      && player(request.resource.data.playerId).active == true;
+        allow update, delete: if isAdmin();
+      }
     }
   }
 }

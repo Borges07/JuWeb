@@ -440,6 +440,52 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Lista de votações (admin) ---------- */
+.voting-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voting-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.voting-row__info {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voting-row__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.voting-row__title strong {
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.voting-row__desc {
+  font-size: 14px;
+  color: var(--text);
+}
+
 /* ---------- Ajustes de formulário no painel ---------- */
 .panel .form {
   max-width: 520px;

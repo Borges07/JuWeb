@@ -25,6 +25,10 @@ export function validatePlayer(input: Partial<PlayerInput>): Record<string, stri
     errors.number = 'Informe um número válido.'
   }
 
+  if (!input.votingId || !isNonEmpty(input.votingId)) {
+    errors.votingId = 'Selecione a votação do atleta.'
+  }
+
   // A foto é enviada como arquivo e convertida em data URL — não validamos formato.
   return errors
 }

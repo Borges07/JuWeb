@@ -1,23 +1,20 @@
-// Hub do painel: visão geral com métricas ao vivo + cards que levam a cada
-// sub-tela (cadastro de jogadores, categorias, controle da votação e dash de
-// votos). Cada card é responsável por uma área do sistema.
+// Hub do painel: visão geral com métricas + cards que levam às áreas
+// (jogadores, categorias e votações). Os resultados ficam dentro de cada votação.
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getVotings } from '../../services/votingService'
 import { getAllPlayers } from '../../services/playerService'
 import { getCategories } from '../../services/categoryService'
-import { getSettings } from '../../services/settingsService'
-import { getResults } from '../../services/voteService'
 import { ROUTES } from '../../constants/routes'
 import Icon, { type IconName } from '../../components/Icon/Icon'
 import Loading from '../../components/Loading/Loading'
 
 interface Overview {
-  total: number
-  active: number
+  votings: number
+  open: number
+  players: number
   categories: number
-  votes: number
-  votingOpen: boolean
 }
 
 interface HubItem {
@@ -34,19 +31,17 @@ export function AdminDashboard() {
   useEffect(() => {
     let active = true
     async function load() {
-      const [players, categories, settings] = await Promise.all([
+      const [votings, players, categories] = await Promise.all([
+        getVotings(),
         getAllPlayers(),
         getCategories(),
-        getSettings(),
       ])
-      const results = await getResults(players)
       if (!active) return
       setData({
-        total: players.length,
-        active: players.filter((p) => p.active).length,
+        votings: votings.length,
+        open: votings.filter((v) => v.status === 'aberta').length,
+        players: players.length,
         categories: categories.length,
-        votes: results.reduce((sum, r) => sum + r.votes, 0),
-        votingOpen: settings.votingOpen,
       })
     }
     void load()
@@ -60,29 +55,22 @@ export function AdminDashboard() {
       to: ROUTES.ADMIN_PLAYERS,
       icon: 'users',
       title: 'Jogadores',
-      description: 'Cadastre, edite, ative ou remova os atletas da votação.',
-      meta: () => `${data?.total ?? 0} cadastrados`,
+      description: 'Cadastre, edite e ative os atletas, vinculando cada um a uma votação.',
+      meta: () => `${data?.players ?? 0} cadastrados`,
     },
     {
       to: ROUTES.ADMIN_CATEGORIES,
       icon: 'layers',
       title: 'Categorias',
-      description: 'Organize os atletas por categoria reutilizável.',
+      description: 'Categorias reutilizáveis no cadastro de atletas (ex.: Sub-10).',
       meta: () => `${data?.categories ?? 0} categorias`,
     },
     {
-      to: ROUTES.ADMIN_VOTING,
-      icon: 'sliders',
-      title: 'Votação',
-      description: 'Abra ou encerre, defina campeonato e partida.',
-      meta: () => (data?.votingOpen ? 'Aberta agora' : 'Encerrada'),
-    },
-    {
-      to: ROUTES.ADMIN_RESULTS,
-      icon: 'bar-chart',
-      title: 'Resultados',
-      description: 'Acompanhe a apuração dos votos em tempo real.',
-      meta: () => `${data?.votes ?? 0} votos`,
+      to: ROUTES.ADMIN_VOTINGS,
+      icon: 'trophy',
+      title: 'Votações',
+      description: 'Crie votações e controle abertura, pausa, encerramento e resultados.',
+      meta: () => `${data?.votings ?? 0} no total`,
     },
   ]
 
@@ -90,20 +78,20 @@ export function AdminDashboard() {
     <div className="hub">
       <div className="section-head">
         <span className="section-head__icon">
-          <Icon name="trophy" />
+          <Icon name="shield" />
         </span>
         <div className="section-head__text">
           <h1>Visão geral</h1>
-          <p>Gerencie tudo da votação em um só lugar.</p>
+          <p>Gerencie atletas, categorias e votações em um só lugar.</p>
         </div>
         <div className="section-head__actions">
           {data &&
-            (data.votingOpen ? (
+            (data.open > 0 ? (
               <span className="badge badge--success">
-                <span className="badge__dot" /> Votação aberta
+                <span className="badge__dot" /> {data.open} aberta{data.open === 1 ? '' : 's'}
               </span>
             ) : (
-              <span className="badge badge--neutral">Votação encerrada</span>
+              <span className="badge badge--neutral">Nenhuma aberta</span>
             ))}
         </div>
       </div>
@@ -114,27 +102,27 @@ export function AdminDashboard() {
         <div className="stat-strip">
           <div className="stat">
             <span className="stat__label">
-              <Icon name="check-circle" /> Atletas ativos
+              <Icon name="trophy" /> Votações
             </span>
-            <span className="stat__value">{data.active}</span>
+            <span className="stat__value">{data.votings}</span>
           </div>
           <div className="stat">
             <span className="stat__label">
-              <Icon name="users" /> Total de atletas
+              <Icon name="check-circle" /> Abertas agora
             </span>
-            <span className="stat__value">{data.total}</span>
+            <span className="stat__value">{data.open}</span>
+          </div>
+          <div className="stat">
+            <span className="stat__label">
+              <Icon name="users" /> Atletas
+            </span>
+            <span className="stat__value">{data.players}</span>
           </div>
           <div className="stat">
             <span className="stat__label">
               <Icon name="layers" /> Categorias
             </span>
             <span className="stat__value">{data.categories}</span>
-          </div>
-          <div className="stat">
-            <span className="stat__label">
-              <Icon name="bar-chart" /> Votos totais
-            </span>
-            <span className="stat__value">{data.votes}</span>
           </div>
         </div>
       )}

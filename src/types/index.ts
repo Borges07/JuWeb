@@ -10,6 +10,8 @@ export interface Player {
   photo?: string
   /** Apenas jogadores ativos aparecem para votação. */
   active: boolean
+  /** Votação à qual o atleta está vinculado (id do doc em `votings`). */
+  votingId: string
 }
 
 /** Dados usados para criar/editar um jogador (sem o id gerado pelo Firestore). */
@@ -26,21 +28,38 @@ export interface Category {
 }
 
 export interface Vote {
-  /** ID do documento = uid do votante (garante 1 voto por conta). */
+  /** ID do documento = uid do votante (garante 1 voto por conta por votação). */
   id: string
   playerId: string
   /** Timestamp de criação (serverTimestamp). */
   createdAt: string
 }
 
-export interface Settings {
-  /** Indica se a votação está aberta. */
-  votingOpen: boolean
-  /** Campeonato atual (ex.: "Liga Regional 2026"). */
-  championship: string
-  /** Partida atual (ex.: "ADEC x Time B - 22/06"). */
-  match: string
+/**
+ * Estado de uma votação no seu ciclo de vida:
+ * - rascunho: em montagem (cadastrando atletas), invisível ao público.
+ * - aberta: recebendo votos.
+ * - pausada: visível ao público, mas sem aceitar votos no momento.
+ * - encerrada: finalizada (não aceita votos; some da lista pública).
+ */
+export type VotingStatus = 'rascunho' | 'aberta' | 'pausada' | 'encerrada'
+
+/**
+ * Uma votação (ex.: "Destaque do Campeonato Regional 2026"). Cada votação tem
+ * seu próprio elenco de atletas e seus próprios votos (subcoleções no Firestore).
+ */
+export interface Voting {
+  id: string
+  title: string
+  /** Campeonato/escola ou contexto da votação. */
+  description: string
+  status: VotingStatus
+  /** Epoch em ms (derivado do serverTimestamp) para ordenação. */
+  createdAt: number
 }
+
+/** Dados para criar/editar uma votação (sem id/status/createdAt gerados). */
+export type VotingInput = Pick<Voting, 'title' | 'description'>
 
 /** Resultado agregado por jogador, usado nas telas de ranking/resultados. */
 export interface PlayerResult {

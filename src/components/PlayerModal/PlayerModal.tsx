@@ -58,7 +58,12 @@ export function PlayerModal({
 
   function renderAction() {
     if (!votingOpen) return null
-    if (alreadyVoted) return <p className="modal__voted">✓ Você já votou</p>
+    if (alreadyVoted)
+      return (
+        <p className="modal__voted" role="status">
+          ✓ Você já votou
+        </p>
+      )
     if (!isLoggedIn) {
       return (
         <button
