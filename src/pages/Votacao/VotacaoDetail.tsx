@@ -1,24 +1,31 @@
-// Página pública de Votação.
-// Lista os atletas ativos em ordem neutra (por camisa), SEM revelar votos,
-// percentual ou posição — o andamento da votação fica só para o admin.
-// Para votar é preciso entrar com o Google (1 voto por conta). Ao clicar num
-// atleta abre o modal com os dados e a ação de votar/entrar.
+// Página pública de uma votação específica.
+// Lista os atletas ativos em ordem neutra (por camisa), SEM revelar votos —
+// o andamento fica só para o admin. Para votar é preciso entrar com o Google
+// (1 voto por conta por votação). Trata os estados pausada/encerrada.
+//
+// O componente exportado é um wrapper que remonta a tela a cada troca de
+// votação (key={votingId}), zerando todo o estado local e os hooks — evita
+// mostrar atletas/voto/erro de uma votação anterior ao navegar entre votações.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getActivePlayers } from '../../services/playerService'
-import { getSettings } from '../../services/settingsService'
+import { Link, useParams } from 'react-router-dom'
+import { getActivePlayersByVoting } from '../../services/playerService'
+import { getVoting } from '../../services/votingService'
 import { useVote } from '../../hooks/useVote'
 import { useAuth } from '../../hooks/useAuth'
 import RankingCard from '../../components/RankingCard/RankingCard'
 import PlayerModal from '../../components/PlayerModal/PlayerModal'
 import Loading from '../../components/Loading/Loading'
-import type { Player, Settings } from '../../types'
+import Icon from '../../components/Icon/Icon'
+import StatusBadge from '../../components/StatusBadge/StatusBadge'
+import { ROUTES } from '../../constants/routes'
+import type { Player, Voting } from '../../types'
 
-export function Votacao() {
+function VotacaoDetailView({ votingId }: { votingId: string }) {
+  const [voting, setVoting] = useState<Voting | null | undefined>(undefined)
   const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [settings, setSettings] = useState<Settings | null>(null)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -26,33 +33,35 @@ export function Votacao() {
   const closeModal = useCallback(() => setSelected(null), [])
 
   const { user, loginWithGoogle, logout } = useAuth()
-  const { voting, alreadyVoted, error: voteError, vote } = useVote()
+  const { voting: registering, alreadyVoted, error: voteError, vote } = useVote(votingId)
   const [loggingIn, setLoggingIn] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
 
   useEffect(() => {
+    let active = true
     async function load() {
       try {
-        setPlayers(await getActivePlayers())
-        setSettings(await getSettings())
+        const v = await getVoting(votingId)
+        if (!active) return
+        setVoting(v ?? null)
+        if (v) setPlayers(await getActivePlayersByVoting(votingId))
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao carregar a votação.')
+        if (active) setError(err instanceof Error ? err.message : 'Erro ao carregar a votação.')
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
     void load()
-  }, [])
+    return () => {
+      active = false
+    }
+  }, [votingId])
 
-  // Ordem neutra (por número da camisa) para não denunciar o placar pela
-  // posição na lista. A apuração por votos fica restrita ao painel admin.
   const ordered = useMemo(
     () => [...players].sort((a, b) => a.number - b.number),
     [players],
   )
 
-  // Dedup robusto: normaliza (trim + minúsculas) para nunca repetir a mesma
-  // categoria no filtro, mesmo com vários atletas iguais.
   const categories = useMemo(() => {
     const map = new Map<string, string>()
     players.forEach((p) => {
@@ -65,7 +74,6 @@ export function Votacao() {
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b))
   }, [players])
 
-  // Se a categoria selecionada deixou de existir, ignora o filtro.
   const activeCategory = categories.some(
     (c) => c.toLowerCase() === categoryFilter.toLowerCase(),
   )
@@ -80,7 +88,7 @@ export function Votacao() {
     return matchName && matchCategory
   })
 
-  const votingOpen = settings?.votingOpen ?? false
+  const votingOpen = voting?.status === 'aberta'
   const isLoggedIn = !!user
   const canVote = votingOpen && isLoggedIn && !alreadyVoted
 
@@ -97,31 +105,65 @@ export function Votacao() {
   }
 
   async function handleVote(playerId: string) {
-    // Não recarrega nada: a lista pública não mostra contagem de votos.
     await vote(playerId)
   }
 
+  const backLink = (
+    <Link className="back-link" to={ROUTES.VOTE}>
+      <Icon name="arrow-left" /> Votações
+    </Link>
+  )
+
   if (loading) return <Loading label="Carregando..." />
-  if (error) return <p className="alert alert--error">{error}</p>
+  if (error)
+    return (
+      <section className="page">
+        {backLink}
+        <p className="alert alert--error" role="alert">{error}</p>
+      </section>
+    )
+
+  if (!voting) {
+    return (
+      <section className="page">
+        {backLink}
+        <div className="empty-state">
+          <Icon name="alert" />
+          <strong>Votação não encontrada</strong>
+          <p>Ela pode ter sido encerrada ou removida.</p>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="page page--votacao">
-      <h1>Votação</h1>
-      {(settings?.championship || settings?.match) && (
-        <p className="page__subtitle">
-          {[settings?.championship, settings?.match].filter(Boolean).join(' · ')}
+      {backLink}
+      <div className="page__title-row">
+        <h1>{voting.title}</h1>
+        <StatusBadge status={voting.status} />
+      </div>
+      {voting.description && <p className="page__subtitle">{voting.description}</p>}
+
+      {voting.status === 'pausada' && (
+        <p className="alert alert--info" role="status">
+          Esta votação está pausada. Em breve ela volta — fique de olho. ⏸️
         </p>
       )}
-
-      {!votingOpen && (
-        <p className="alert alert--info">A votação está encerrada.</p>
+      {voting.status === 'encerrada' && (
+        <p className="alert alert--info" role="status">
+          Esta votação foi encerrada. Obrigado por participar! 🎉
+        </p>
+      )}
+      {voting.status === 'rascunho' && (
+        <p className="alert alert--info" role="status">
+          Esta votação ainda não foi aberta.
+        </p>
       )}
 
       {votingOpen && !isLoggedIn && (
         <div className="vote-login">
-          <p className="page__subtitle">
-            Entre com sua conta Google para votar.
-          </p>
+          <p className="page__subtitle">Entre com sua conta Google para votar.</p>
           <button
             className="btn btn--primary"
             type="button"
@@ -144,16 +186,22 @@ export function Votacao() {
       )}
 
       {votingOpen && isLoggedIn && alreadyVoted && (
-        <p className="alert alert--info">Você já votou. Obrigado! 🎉</p>
+        <p className="alert alert--info" role="status">
+          Você já votou nesta votação. Obrigado! 🎉
+        </p>
       )}
       {canVote && (
         <p className="page__subtitle">Clique em um atleta para ver os detalhes e votar.</p>
       )}
-      {loginError && <p className="alert alert--error">{loginError}</p>}
-      {voteError && <p className="alert alert--error">{voteError}</p>}
+      {loginError && <p className="alert alert--error" role="alert">{loginError}</p>}
+      {voteError && <p className="alert alert--error" role="alert">{voteError}</p>}
 
       {players.length === 0 ? (
-        <p>Nenhum atleta disponível no momento.</p>
+        <div className="empty-state">
+          <Icon name="users" />
+          <strong>Nenhum atleta nesta votação</strong>
+          <p>Os atletas ainda não foram cadastrados. Volte mais tarde.</p>
+        </div>
       ) : (
         <>
           <div className="results__filters">
@@ -186,7 +234,13 @@ export function Votacao() {
             ))}
           </div>
 
-          {filtered.length === 0 && <p>Nenhum atleta encontrado com esse filtro.</p>}
+          {filtered.length === 0 && (
+            <div className="empty-state">
+              <Icon name="search" />
+              <strong>Nenhum atleta encontrado</strong>
+              <p>Tente outro nome ou categoria.</p>
+            </div>
+          )}
         </>
       )}
 
@@ -196,7 +250,7 @@ export function Votacao() {
           votingOpen={votingOpen}
           isLoggedIn={isLoggedIn}
           canVote={canVote}
-          voting={voting}
+          voting={registering}
           alreadyVoted={alreadyVoted}
           loggingIn={loggingIn}
           onLogin={handleLogin}
@@ -208,4 +262,10 @@ export function Votacao() {
   )
 }
 
-export default Votacao
+// Remonta a cada troca de votação (key) para zerar estado local e hooks.
+export function VotacaoDetail() {
+  const { votingId = '' } = useParams()
+  return <VotacaoDetailView key={votingId} votingId={votingId} />
+}
+
+export default VotacaoDetail

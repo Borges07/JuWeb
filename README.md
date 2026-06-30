@@ -1,16 +1,17 @@
 # Sistema de Votação de Destaque do Jogo ⚽
 
 Aplicação web para votação do **destaque da partida** de um time de futebol.
-O torcedor vota rapidamente, **sem precisar criar conta**, e há proteção contra
-votos múltiplos. Há também uma área administrativa protegida para gerenciar
-jogadores e o andamento da votação.
+O admin cria **várias votações** (ex.: destaque de um campeonato/escola), cada
+uma com seu próprio elenco de atletas e seu próprio controle de abertura, pausa
+e encerramento. O torcedor escolhe uma votação e vota entrando com a conta
+Google (**1 voto por conta por votação**).
 
 ## Stack
 
 - **Frontend:** React + Vite + TypeScript + React Router + Context API
 - **Backend (BaaS):** Firebase Authentication + Firestore
 - **Deploy:** Vercel (frontend) + Firebase (banco/auth)
-- **Anti-voto-duplo:** Fingerprint do navegador + flag no LocalStorage (2 camadas)
+- **Anti-voto-duplo:** login Google + voto com `id = uid` por votação (garantido nas regras do Firestore)
 
 > O PDF original especificava JavaScript (`.jsx`). Como o projeto já estava
 > montado em **TypeScript**, mantivemos TS — a estrutura de pastas é a mesma.
@@ -19,20 +20,26 @@ jogadores e o andamento da votação.
 
 ```
 src/
-  components/        # PlayerCard, VoteButton, RankingCard, Loading, ProtectedRoute
-  pages/             # Home, Vote, Results, Login, Admin
+  components/        # RankingCard, PlayerModal, Icon, StatusBadge, Loading, ProtectedRoute
+  pages/
+    Home, Login
+    Votacao/         # VotacaoList (cards), VotacaoDetail (votar numa votação)
+    Admin/           # AdminLayout, AdminDashboard, AdminPlayers, AdminVotings,
+                     # AdminVotingManage, AdminCategories,
+                     # voting/ (ResultsBoard, VotingPlayersModal)
   services/
     firebase/        # config.ts (inicialização do Firebase)
-    playerService.ts # CRUD de jogadores
-    voteService.ts   # registrar/apurar votos
-    authService.ts   # login/logout admin
-    settingsService.ts
+    votingService.ts # CRUD de votações + status (abrir/pausar/encerrar)
+    playerService.ts # CRUD de atletas (raiz) + consultas por votingId
+    voteService.ts   # registrar/apurar votos por votação (subcoleção)
+    categoryService.ts # categorias globais
+    authService.ts   # login/logout + allowlist de admin
   contexts/          # AuthContext
-  hooks/             # useAuth, useVote, usePlayers
+  hooks/             # useAuth, useVote(votingId)
   routes/            # definição das rotas
-  utils/             # fingerprint, validators
+  utils/             # validators, image
   constants/         # rotas e nomes de coleções
-  types/             # tipos do domínio (Player, Vote, Settings)
+  types/             # tipos do domínio (Voting, Player, Vote, Category)
 ```
 
 ## Como rodar localmente
@@ -61,8 +68,9 @@ A aplicação sobe em `http://localhost:5173`.
 
 1. Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
 2. Em **Firestore Database**, crie o banco (modo produção).
-3. Em **Authentication**, ative o provedor **E-mail/senha** e cadastre o
-   usuário do administrador (e-mail + senha).
+3. Em **Authentication**, ative os provedores **E-mail/senha** (login do admin)
+   e **Google** (login do votante). Cadastre o usuário admin (e-mail + senha) e
+   adicione o `uid` dele em um documento da coleção `admins` (id do doc = uid).
 4. Em **Configurações do projeto > Seus apps**, registre um app **Web** e copie
    as credenciais para o `.env.local`:
 
@@ -81,24 +89,21 @@ A aplicação sobe em `http://localhost:5173`.
 
 ### Coleções do Firestore
 
-| Coleção    | Campos                                          |
-| ---------- | ----------------------------------------------- |
-| `players`  | `name`, `number`, `category?`, `photo?` (data URL base64), `active` |
-| `votes`    | `playerId`, `fingerprint`, `createdAt`          |
-| `settings` | doc `global`: `votingOpen`, `championship`, `match` |
+| Coleção / caminho                       | Campos                                                              |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| `votings/{id}`                          | `title`, `description`, `status` (`rascunho`/`aberta`/`pausada`/`encerrada`), `createdAt` |
+| `players/{playerId}`                    | `name`, `number`, `category?`, `photo?` (data URL base64), `active`, `votingId` (vincula à votação) |
+| `votings/{id}/votes/{uid}`              | `playerId`, `createdAt` — id do doc = uid do votante               |
+| `categories/{id}`                       | `name` (categorias globais reutilizáveis)                          |
+| `admins/{uid}`                          | allowlist de administradores (gerenciada no console)               |
 
 ## Como funciona a proteção contra votos duplicados
 
-1. **Camada 1 — LocalStorage:** ao votar, grava `hasVoted=true`. Bloqueia F5,
-   atualizar a página e fechar/reabrir o navegador.
-2. **Camada 2 — Fingerprint:** gera uma "assinatura" do dispositivo (navegador,
-   SO, idioma, timezone, resolução, núcleos de CPU…) e verifica no Firestore se
-   aquele fingerprint já votou. Continua bloqueando mesmo se o LocalStorage for
-   apagado.
-
-> Não protege 100% contra aba anônima, limpar o navegador ou troca de
-> dispositivo — é suficiente para uma votação esportiva simples. Para algo mais
-> robusto, dá para trocar o `utils/fingerprint.ts` por uma lib dedicada.
+O voto exige **login com o Google**. O documento de voto usa o **`uid` da conta
+como id** dentro da subcoleção `votes` da votação. Como recriar um documento
+existente vira *update* (proibido nas regras), fica garantido **1 voto por conta
+por votação** no nível do servidor — à prova de limpar cache, trocar de
+navegador ou de aparelho. As regras estão em [`firestore.rules`](firestore.rules).
 
 ## Deploy
 
@@ -113,6 +118,6 @@ automático.
 
 ## Roadmap / melhorias futuras
 
-Painel de estatísticas, gráficos de votação, histórico por partida, ranking da
-temporada, votações simultâneas, upload de fotos, exportação CSV, dashboard
-avançado e eventual migração para backend próprio.
+Gráficos de votação avançados, histórico por temporada, ranking consolidado,
+exportação CSV dos resultados, agendamento de abertura/encerramento e eventual
+migração para backend próprio.

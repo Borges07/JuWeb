@@ -13,17 +13,17 @@ interface UseVoteState {
   vote: (playerId: string) => Promise<boolean>
 }
 
-export function useVote(): UseVoteState {
+export function useVote(votingId: string): UseVoteState {
   const { user } = useAuth()
   const [voting, setVoting] = useState(false)
   const [alreadyVoted, setAlreadyVoted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Ao logar/trocar de conta, confere no Firestore se aquela conta já votou.
-  // (Sem usuário resolve como "não votou".) Só setState dentro do callback.
+  // Ao logar/trocar de conta (ou de votação), confere no Firestore se aquela
+  // conta já votou NESTA votação. (Sem usuário resolve como "não votou".)
   useEffect(() => {
     let cancelled = false
-    const check = user ? hasVoted(user.uid) : Promise.resolve(false)
+    const check = user ? hasVoted(votingId, user.uid) : Promise.resolve(false)
     check
       .then((voted) => {
         if (!cancelled) setAlreadyVoted(voted)
@@ -34,7 +34,7 @@ export function useVote(): UseVoteState {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, votingId])
 
   const vote = useCallback(
     async (playerId: string): Promise<boolean> => {
@@ -45,7 +45,7 @@ export function useVote(): UseVoteState {
       setVoting(true)
       setError(null)
       try {
-        await castVote(user.uid, playerId)
+        await castVote(votingId, user.uid, playerId)
         setAlreadyVoted(true)
         return true
       } catch (err) {
@@ -59,7 +59,7 @@ export function useVote(): UseVoteState {
         setVoting(false)
       }
     },
-    [user],
+    [user, votingId],
   )
 
   return { voting, alreadyVoted, error, vote }
